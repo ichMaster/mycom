@@ -1,0 +1,25 @@
+Screen {
+    layout: vertical;
+}
+
+#panel-container {
+    layout: horizontal;
+    height: 1fr;
+}
+
+FileBrowserPanel {
+    width: 1fr;
+}
+
+StatusBar {
+    dock: bottom;
+    height: 1;
+}
+
+AppHeader {
+    dock: top;
+    height: 1;
+    background: $primary;
+    color: $text;
+    text-align: center;
+}

@@ -9,7 +9,9 @@
 | Terminal Embed | pyte (terminal emulator) + PTY      |
 | LLM Client     | Anthropic Python SDK (Claude API)   |
 | Config         | TOML                                |
-| Packaging      | pip / pyproject.toml                |
+| Package Mgmt   | uv (lockfile, venv, run)            |
+| Docs           | MkDocs + Material + mkdocstrings    |
+| Linting        | Ruff                                |
 
 ## High-Level Structure
 

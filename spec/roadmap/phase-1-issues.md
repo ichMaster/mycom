@@ -5,15 +5,17 @@
 | # | ID | Title | Size | Stage | Dependencies |
 |---|---|---|---|---|---|
 | 1 | MC-001 | Project scaffold and package structure | S | 1 — Scaffold | -- |
-| 2 | MC-002 | Configuration and key bindings | S | 1 — Scaffold | MC-001 |
-| 3 | MC-003 | Core widgets | M | 2 — Widgets | MC-001 |
-| 4 | MC-004 | Panel system and file browser panel | M | 3 — Panels | MC-003 |
-| 5 | MC-005 | Application shell and dual-panel layout | M | 4 — App Shell | MC-004, MC-002 |
-| 6 | MC-006 | File navigation, quick filter, and sorting | M | 5 — Navigation | MC-005 |
-| 7 | MC-007 | Filesystem utilities | S | 6 — Utilities | MC-001 |
-| 8 | MC-008 | Test suite and fixtures | M | 7 — Testing | MC-006, MC-007 |
+| 2 | MC-002 | Configuration and key bindings | S | 2 — Config | MC-001 |
+| 3 | MC-003 | Core widgets | M | 3 — Widgets | MC-001 |
+| 4 | MC-004 | Filesystem utilities | S | 4 — Utilities | MC-001 |
+| 5 | MC-005 | Panel system and file browser panel | M | 5 — Panels | MC-003, MC-004 |
+| 6 | MC-006 | Application shell and dual-panel layout | M | 6 — App Shell | MC-005, MC-002 |
+| 7 | MC-007 | File navigation, quick filter, and sorting | M | 7 — Navigation | MC-006 |
+| 8 | MC-008 | Documentation site and API reference | S | 8 — Docs | MC-007 |
 
 **Size legend:** S = 1–2 days, M = 3–5 days
+
+**Tooling:** All commands use `uv run` (e.g., `uv run pytest`, `uv run mycom`, `uv run mkdocs build`).
 
 ---
 
@@ -24,30 +26,31 @@
                 |
         +-------+-------+
         v       v       v
-    MC-002  MC-003  MC-007
+    MC-002  MC-003  MC-004
     (config) (widgets) (fs utils)
         |       |       |
-        |   MC-004      |
-        |   (panels)    |
-        |       |       |
-        +---v---+       |
-          MC-005        |
-          (app shell)   |
-              |         |
-          MC-006        |
-          (navigation)  |
-              |         |
-              +----+----+
-                   |
-               MC-008
-               (tests)
+        |       +---+---+
+        |           v
+        |       MC-005
+        |       (panels)
+        |           |
+        +-----+-----+
+              v
+          MC-006
+          (app shell)
+              |
+          MC-007
+          (navigation)
+              |
+          MC-008
+          (docs)
 ```
 
 **Parallelization hints:**
 
-- MC-002, MC-003, and MC-007 can all run in parallel after MC-001
-- MC-007 has no dependency on the widget/panel chain and can be built early
-- MC-008 depends on both the navigation chain and filesystem utilities
+- MC-002, MC-003, and MC-004 can all run in parallel after MC-001
+- MC-005 merges the widget and fs utility tracks
+- MC-008 (docs) comes last since it documents all other modules
 
 ---
 
@@ -56,32 +59,42 @@
 ### MC-001 — Project scaffold and package structure
 
 **Description:**
-Set up the `mycom` Python package with build configuration, directory structure, and entry point. This is the foundation that all other issues build on.
+Set up the `mycom` Python package with `uv`, build configuration, directory structure, entry point, and documentation scaffold. This is the foundation that all other issues build on.
 
 **What needs to be done:**
-- Create `pyproject.toml` with:
+- `pyproject.toml` with:
   - Python 3.11+ requirement
-  - Dependencies: `textual>=0.80`, `pyte`, `anthropic`, `tomli` (for Python <3.11 TOML support, or `tomllib` stdlib)
-  - Dev dependencies via `[dev]` extra: `pytest`, `pytest-cov`, `pytest-asyncio`, `textual-dev`
+  - Dependencies: `textual>=0.80`, `pyte>=0.8`, `anthropic>=0.40`
+  - Dev dependency group: `pytest`, `pytest-cov`, `pytest-asyncio`, `textual-dev`, `ruff`
+  - Docs dependency group: `mkdocs`, `mkdocs-material`, `mkdocstrings[python]`, `mkdocs-gen-files`, `mkdocs-literate-nav`
   - Console script entry point: `mycom = "mycom.app:main"`
-- Create `mycom/` source package with `__init__.py` containing `__version__`
-- Create sub-packages with `__init__.py`: `panels/`, `operations/`, `plugins/`, `plugins/viewer/`, `plugins/editor/`, `widgets/`, `llm/`, `utils/`
-- Create `tests/`, `tests/unit/`, `tests/integration/`, `tests/fixtures/`
-- Create `README.md` and `.gitignore`
+- `mycom/` source package with `__init__.py` containing `__version__ = "0.1.0"`
+- Sub-packages with `__init__.py`: `panels/`, `operations/`, `plugins/`, `plugins/viewer/`, `plugins/editor/`, `widgets/`, `llm/`, `utils/`
+- `tests/unit/`, `tests/integration/`, `tests/fixtures/`
+- `VERSION` file, `RELEASE.txt`
+- `uv lock` to generate lockfile
+- `mkdocs.yml` with material theme and basic nav
+- `docs/index.md` and `docs/getting-started.md` stubs
+
+**Unit tests:**
+- `tests/unit/test_scaffold.py` — all sub-packages import, `__version__` is set
 
 **Dependencies:** None
 
 **Expected result:**
-A clean Python package that installs via `pip install -e ".[dev]"` and runs `mycom` from the command line (even if it only shows a placeholder screen).
+A clean Python package managed by `uv` that installs and runs from the command line, with a documentation site that builds.
 
 **Acceptance criteria:**
-- [ ] `pip install -e ".[dev]"` exits 0
-- [ ] `mycom` command launches (placeholder Textual app is fine)
-- [ ] All sub-packages import without errors: `from mycom.panels import base`, `from mycom.widgets import file_list`, etc.
-- [ ] `pytest` runs with 0 errors (even if 0 tests)
-- [ ] `.gitignore` covers `__pycache__/`, `.venv/`, `*.egg-info/`, `.mypy_cache/`
+- [ ] `uv sync --all-groups` exits 0
+- [ ] `uv run mycom` launches (placeholder Textual app is fine)
+- [ ] All sub-packages import without errors
+- [ ] `uv run pytest` exits 0 with at least 1 passing test
+- [ ] `uv run mkdocs build` exits 0
+- [ ] `uv.lock` is committed and reproducible
 
 ---
+
+## Stage 2 — Config
 
 ### MC-002 — Configuration and key bindings
 
@@ -89,15 +102,23 @@ A clean Python package that installs via `pip install -e ".[dev]"` and runs `myc
 Implement TOML-based configuration loading and the key binding registry. All user-customizable settings flow through this module.
 
 **What needs to be done:**
-- Implement `mycom/config.py`:
+- `mycom/config.py`:
   - Load config from `~/.config/mycom/config.toml` if it exists
   - Merge with built-in defaults for any missing keys
   - Config sections: `[general]`, `[keybindings]`, `[llm]`, `[plugins.viewers]`, `[plugins.editors]`
-- Implement `mycom/utils/keys.py`:
-  - `KeyBindings` class that maps action names to Textual key identifiers
+- `mycom/utils/keys.py`:
+  - `KeyBindings` class mapping action names to Textual key identifiers
   - Default bindings: F1=help, F3=view, F4=edit, F5=copy, F6=move, F7=mkdir, F8=delete, F10=quit, Tab=switch_panel, Enter=open, Backspace=go_up, Ctrl+T=terminal_toggle, Ctrl+L=llm_toggle
   - Load overrides from config `[keybindings]` section
-- Create a sample `config.toml` in `tests/fixtures/` for testing
+
+**Unit tests:**
+- `tests/unit/test_config.py` — config loading, defaults, custom values, missing file, unknown keys ignored
+- `tests/unit/test_keys.py` — key binding registry, default bindings, custom overrides
+- `tests/fixtures/config.toml` — sample config for testing
+
+**Documentation:**
+- `docs/configuration.md` — config file format, all sections, example
+- `docs/keybindings.md` — default bindings table, how to customize
 
 **Dependencies:** MC-001
 
@@ -111,10 +132,12 @@ Configuration is loaded once at startup and accessible throughout the app. Key b
 - [ ] `KeyBindings` resolves action names to key sequences
 - [ ] Custom keybinding in config overrides the default
 - [ ] Config is immutable after loading (no mutation at runtime)
+- [ ] `uv run pytest tests/unit/test_config.py tests/unit/test_keys.py` — all pass
+- [ ] `docs/configuration.md` and `docs/keybindings.md` render in mkdocs
 
 ---
 
-## Stage 2 — Widgets
+## Stage 3 — Widgets
 
 ### MC-003 — Core widgets
 
@@ -125,26 +148,31 @@ Build the reusable Textual widgets that compose the file manager UI: file list t
 
 **File list widget (`mycom/widgets/file_list.py`):**
 - Textual `DataTable`-based widget displaying: type indicator, name, size, date, permissions
-- `..` entry at top of every listing (except root `/`)
-- Directories listed before files
-- Current selection highlight with distinct active/inactive styling
+- `..` entry at top (except root `/`)
+- Directories before files
+- Active/inactive styling
 - Handle empty directories
 
 **Status bar (`mycom/widgets/status_bar.py`):**
-- Bottom-of-screen widget showing F-key hints
-- Hints reflect configured keybindings
-- Clickable hints (mouse support)
+- F-key hints, clickable, reflect keybinding config
 
 **Path bar (`mycom/widgets/path_bar.py`):**
-- Shows current directory path per panel
-- Truncates long paths from the left
-- Active/inactive visual distinction
+- Current directory path, long path truncation, active/inactive state
 
 **Dialogs (`mycom/widgets/dialog.py`):**
-- `ConfirmDialog` — modal Yes/No for destructive operations
-- `InputDialog` — modal text input for rename, mkdir, go-to-path
-- `ProgressDialog` — modal progress indicator for file operations
-- All keyboard navigable (Tab, Enter, Escape)
+- `ConfirmDialog` — modal Yes/No
+- `InputDialog` — modal text input
+- `ProgressDialog` — modal progress indicator
+- All keyboard navigable
+
+**Unit tests:**
+- `tests/unit/test_widgets.py` — FileList rendering, dirs-before-files, empty dir, `..` entry
+- `tests/unit/test_status_bar.py` — StatusBar F-key hints
+- `tests/unit/test_path_bar.py` — truncation, active/inactive
+- `tests/unit/test_dialogs.py` — ConfirmDialog True/False, InputDialog text/None, Escape cancel
+
+**Documentation:**
+- `docs/widgets.md` — widget catalog with descriptions
 
 **Dependencies:** MC-001
 
@@ -159,12 +187,53 @@ A set of composable, styled widgets ready to be assembled into panels and the ma
 - [ ] `ConfirmDialog` returns True/False based on user choice
 - [ ] `InputDialog` returns entered text or None on cancel
 - [ ] All widgets render without errors in a Textual test harness
+- [ ] `uv run pytest tests/unit/test_widgets.py tests/unit/test_status_bar.py tests/unit/test_path_bar.py tests/unit/test_dialogs.py` — all pass
 
 ---
 
-## Stage 3 — Panels
+## Stage 4 — Utilities
 
-### MC-004 — Panel system and file browser panel
+### MC-004 — Filesystem utilities
+
+**Description:**
+Implement the low-level filesystem helper functions used by the file list widget and file browser panel. These are pure functions with no Textual dependency.
+
+**What needs to be done:**
+
+**`mycom/utils/fs.py`:**
+- `FileEntry` dataclass: `name`, `path`, `is_dir`, `is_symlink`, `size`, `modified`, `permissions`
+- `list_directory(path, show_hidden) → list[FileEntry]` — stat each entry, return structured list
+- `format_size(bytes) → str` — human-readable sizes: B, KB, MB, GB, TB
+- `format_date(timestamp) → str` — formatted modification date
+- `format_permissions(mode) → str` — rwx permission string
+- Graceful handling of `PermissionError` and `OSError`
+
+**Unit tests:**
+- `tests/unit/test_fs.py` — list_directory with known fixture tree, hidden files toggle, format_size boundary values, format_date, format_permissions, broken symlinks, PermissionError
+- `tests/fixtures/sample_tree/` — directory tree with files, subdirs, symlinks, hidden files
+
+**Documentation:**
+- Add docstrings to all public functions for mkdocstrings API reference
+
+**Dependencies:** MC-001
+
+**Expected result:**
+A set of battle-tested filesystem helpers that handle edge cases (broken symlinks, permission errors, special files) without crashing.
+
+**Acceptance criteria:**
+- [ ] `list_directory` returns correct entries for a known test directory
+- [ ] Hidden files included when `show_hidden=True`, excluded otherwise
+- [ ] `format_size` correct: 0 B, 1023 B, 1.0 KB, 1.5 MB, 2.3 GB
+- [ ] `format_permissions` matches `ls -l` format (e.g., `rwxr-xr-x`)
+- [ ] Broken symlinks don't crash — appear with error indicator
+- [ ] `PermissionError` returns empty list, not exception
+- [ ] `uv run pytest tests/unit/test_fs.py` — all pass
+
+---
+
+## Stage 5 — Panels
+
+### MC-005 — Panel system and file browser panel
 
 **Description:**
 Define the base panel interface that all panel modes (file browser, terminal, LLM chat) will implement, and build the file browser panel as the first concrete implementation.
@@ -184,24 +253,30 @@ Define the base panel interface that all panel modes (file browser, terminal, LL
 - `selected_files` property returning list of selected `Path` objects
 - Active/inactive visual state via border color
 
-**Dependencies:** MC-003
+**Unit tests:**
+- `tests/unit/test_panels.py` — renders with PathBar + FileList, activate/deactivate toggle, get_current_path, get_selected_files
+
+**Documentation:**
+- `docs/panels.md` — panel system overview, modes, switching behavior
+
+**Dependencies:** MC-003, MC-004
 
 **Expected result:**
 A self-contained file browser panel widget that can be placed anywhere in the Textual layout and independently navigated.
 
 **Acceptance criteria:**
 - [ ] `FileBrowserPanel` renders directory listing with path bar
-- [ ] `activate()` / `deactivate()` toggle visual state (border, focus)
+- [ ] `activate()` / `deactivate()` toggle visual state
 - [ ] `get_current_path()` returns the panel's working directory
 - [ ] `get_selected_files()` returns highlighted file paths
 - [ ] `BasePanel` interface is implementable by future terminal and LLM panels
-- [ ] Panel works standalone in a Textual test app
+- [ ] `uv run pytest tests/unit/test_panels.py` — all pass
 
 ---
 
-## Stage 4 — App Shell
+## Stage 6 — App Shell
 
-### MC-005 — Application shell and dual-panel layout
+### MC-006 — Application shell and dual-panel layout
 
 **Description:**
 Wire together two file browser panels, the status bar, and an app header into the main MyCom application with working panel switching.
@@ -212,22 +287,28 @@ Wire together two file browser panels, the status bar, and an app header into th
 - `MyComApp` extending `textual.App`
 - Layout: header → two `FileBrowserPanel` side-by-side (50/50 horizontal split) → `StatusBar`
 - Track active panel (left or right), default left on startup
-- Tab key switches active panel, updating visual state on both panels
+- Tab key switches active panel, updating visual state
 - Load config on startup
-- `main()` function as the entry point
-- Textual CSS file (`mycom/app.tcss`) for layout and theming
+- `main()` entry point function
+- Textual CSS file (`mycom/app.tcss`)
 
 **App header (`mycom/widgets/header.py`):**
-- "MyCom" title
-- Current time display (optional, auto-updating)
+- "MyCom" title, current time display
 
-**Dependencies:** MC-004, MC-002
+**Integration tests:**
+- `tests/integration/test_app.py` — app starts, dual panels render, Tab switches, F10 quits, resize reflows
+
+**Documentation:**
+- `docs/architecture.md` — app shell layout diagram, component relationships
+- Update `docs/getting-started.md` — add usage instructions
+
+**Dependencies:** MC-005, MC-002
 
 **Expected result:**
-Running `mycom` launches a dual-panel file manager that displays the current directory in both panels and allows switching between them with Tab.
+Running `uv run mycom` launches a dual-panel file manager that displays the current directory in both panels and allows switching between them with Tab.
 
 **Acceptance criteria:**
-- [ ] `mycom` launches and renders two side-by-side panels
+- [ ] `uv run mycom` launches and renders two side-by-side panels
 - [ ] Both panels show the current directory listing on startup
 - [ ] Tab key switches the active panel — visual indicator updates
 - [ ] Status bar displays F-key hints at the bottom
@@ -235,12 +316,13 @@ Running `mycom` launches a dual-panel file manager that displays the current dir
 - [ ] Terminal resize reflows panels correctly
 - [ ] F10 or Ctrl+Q exits the application
 - [ ] Config is loaded from TOML on startup
+- [ ] `uv run pytest tests/integration/test_app.py` — all pass
 
 ---
 
-## Stage 5 — Navigation
+## Stage 7 — Navigation
 
-### MC-006 — File navigation, quick filter, and sorting
+### MC-007 — File navigation, quick filter, and sorting
 
 **Description:**
 Implement all navigation interactions: entering directories, going up, keyboard movement, quick filtering, and column sorting.
@@ -248,112 +330,79 @@ Implement all navigation interactions: entering directories, going up, keyboard 
 **What needs to be done:**
 
 **Directory navigation:**
-- Enter key on directory → navigate into it, update `FileList` and `PathBar`
-- Enter on `..` or Backspace → navigate to parent directory
-- Arrow keys (Up/Down) → move cursor in `FileList`
-- Home → first entry, End → last entry
-- Page Up / Page Down → scroll by visible page height
-- Handle permission denied → show message, stay in current dir
-- Follow symlinks for navigation, display symlink indicator
+- Enter on directory → navigate in, update FileList and PathBar
+- Enter on `..` or Backspace → parent directory
+- Arrow keys, Home, End, Page Up, Page Down
+- Permission denied → error message, stay in current dir
+- Symlinks → follow, display indicator
 
 **Quick filter:**
-- Typing alphanumeric characters activates inline filter
-- File list filters in real-time (case-insensitive substring match)
-- Escape clears filter, Enter navigates to selection and clears filter
-- Filter bar appears above status bar when active
+- Typing activates inline filter, real-time case-insensitive substring
+- Escape clears, Enter navigates and clears
 
 **Sorting (`mycom/operations/sort.py`):**
 - Sort by name, size, date, extension
-- Toggle sort direction on repeated activation
-- Sort indicator (▲/▼) in column header
-- Directories always before files regardless of sort field
+- Direction toggle, sort indicator (▲/▼)
+- Directories always first
 
-**Dependencies:** MC-005
+**Unit tests:**
+- `tests/unit/test_sort.py` — sort by all fields, ascending/descending, dirs-first invariant
+
+**Integration tests:**
+- `tests/integration/test_navigation.py` — enter dir, go up, Home/End, quick filter, sort toggle, permission denied
+
+**Documentation:**
+- `docs/navigation.md` — navigation keys, quick filter, sorting
+
+**Dependencies:** MC-006
 
 **Expected result:**
 Full keyboard-driven file navigation with filtering and sorting — the core interaction loop of the file manager.
 
 **Acceptance criteria:**
 - [ ] Enter navigates into directories and Backspace goes up
-- [ ] Arrow keys, Home, End, Page Up, Page Down all work correctly
-- [ ] Permission denied shows an error message, does not crash
-- [ ] Quick filter narrows file list in real-time as user types
+- [ ] Arrow keys, Home, End, Page Up, Page Down all work
+- [ ] Permission denied shows error, does not crash
+- [ ] Quick filter narrows file list in real-time
 - [ ] Escape clears filter and restores full listing
 - [ ] Sorting works for all 4 fields with direction toggle
 - [ ] Directories remain above files in every sort mode
 - [ ] Sort indicator visible in active column header
+- [ ] `uv run pytest tests/unit/test_sort.py tests/integration/test_navigation.py` — all pass
 
 ---
 
-## Stage 6 — Utilities
+## Stage 8 — Docs
 
-### MC-007 — Filesystem utilities
+### MC-008 — Documentation site and API reference
 
 **Description:**
-Implement the low-level filesystem helper functions used by the file list widget and file browser panel. These are pure functions with no Textual dependency.
+Finalize the MkDocs documentation site with auto-generated API reference from source docstrings and polished user guide pages.
 
 **What needs to be done:**
 
-**`mycom/utils/fs.py`:**
-- `FileEntry` dataclass: `name`, `path`, `is_dir`, `is_symlink`, `size`, `modified`, `permissions`
-- `list_directory(path, show_hidden) → list[FileEntry]` — stat each entry, return structured list
-- `format_size(bytes) → str` — human-readable sizes: B, KB, MB, GB, TB
-- `format_date(timestamp) → str` — formatted modification date
-- `format_permissions(mode) → str` — rwx permission string
-- Graceful handling of `PermissionError` and `OSError` in all functions
+**API reference generation:**
+- Configure `mkdocs-gen-files` to auto-generate API reference pages from `mycom/` source
+- Configure `mkdocs-literate-nav` for automatic navigation
+- Ensure all public classes and functions have docstrings
 
-**Dependencies:** MC-001
+**User guide pages:**
+- Finalize `docs/index.md` — project overview, features, installation
+- Finalize `docs/getting-started.md` — install via `uv`, first run, basic usage
+- Create `docs/development.md` — dev setup with `uv`, running tests, linting, building docs
+- Review and finalize all docs pages from previous issues
 
-**Expected result:**
-A set of battle-tested filesystem helpers that handle edge cases (broken symlinks, permission errors, special files) without crashing.
-
-**Acceptance criteria:**
-- [ ] `list_directory` returns correct entries for a known test directory
-- [ ] Hidden files included when `show_hidden=True`, excluded otherwise
-- [ ] `format_size` produces correct output: 0 B, 1023 B, 1.0 KB, 1.5 MB, 2.3 GB
-- [ ] `format_date` produces a readable date string
-- [ ] `format_permissions` matches `ls -l` output format (e.g., `rwxr-xr-x`)
-- [ ] Broken symlinks don't crash `list_directory` — they appear with an error indicator
-- [ ] `PermissionError` on a directory returns an empty list, not an exception
-
----
-
-## Stage 7 — Testing
-
-### MC-008 — Test suite and fixtures
-
-**Description:**
-Create test fixtures and write unit + integration tests covering the full Phase 1 scope. Validate that the foundation is solid before building file operations and advanced features on top.
-
-**What needs to be done:**
-
-**Fixtures:**
-- `tests/fixtures/sample_tree/` — directory structure with files, subdirectories, symlinks, hidden files for navigation testing
-- `tests/fixtures/config.toml` — sample configuration for config loading tests
-
-**Unit tests:**
-- `test_config.py` — config loading, defaults, custom values, missing file, unknown keys ignored
-- `test_keys.py` — key binding registry, default bindings, custom overrides from config
-- `test_fs.py` — `list_directory`, `format_size`, `format_date`, `format_permissions`, error handling
-- `test_sort.py` — sort by name/size/date/extension, ascending/descending, directories-first invariant
-
-**Integration tests (Textual pilot):**
-- `test_app.py` — app starts, renders dual panels, Tab switches active panel, F10 quits
-- `test_navigation.py` — enter directory, go up, quick filter, sort toggle
-- `test_widgets.py` — file list rendering, status bar display, dialog keyboard navigation
-
-**Dependencies:** MC-006, MC-007
+**Dependencies:** MC-007
 
 **Expected result:**
-A comprehensive test suite that validates the Phase 1 foundation — config, filesystem helpers, widgets, navigation, and the overall app shell.
+A complete, buildable documentation site covering installation, usage, configuration, navigation, and API reference.
 
 **Acceptance criteria:**
-- [ ] All unit tests pass
-- [ ] Integration tests verify app startup and dual-panel rendering
-- [ ] Navigation tests confirm enter, go-up, filter, and sort behaviors
-- [ ] Dialog tests confirm keyboard interaction (Tab, Enter, Escape)
-- [ ] `pytest` runs clean with no warnings
-- [ ] `pytest --cov` shows coverage for all `mycom/` modules
+- [ ] `uv run mkdocs build --strict` exits 0 with no warnings
+- [ ] API reference pages generated for all `mycom/` modules
+- [ ] Navigation structure is complete: index, getting started, configuration, keybindings, navigation, panels, widgets, architecture, development, API reference
+- [ ] `uv run mkdocs serve` renders correctly in browser
+- [ ] All code examples in docs use `uv run` commands
 
 ---
 
@@ -361,12 +410,17 @@ A comprehensive test suite that validates the Phase 1 foundation — config, fil
 
 **Total effort:** ~3–4 weeks for a single developer, ~2 weeks with parallel tracks.
 
-**Critical path:** MC-001 → MC-003 → MC-004 → MC-005 → MC-006 → MC-008
+**Critical path:** MC-001 → MC-003 → MC-005 → MC-006 → MC-007 → MC-008
 
 **Parallel tracks:**
-- Track A (widgets + panels): MC-003 → MC-004 → MC-005 → MC-006
-- Track B (config): MC-002 — can proceed independently after MC-001, merges at MC-005
-- Track C (utilities): MC-007 — can proceed independently after MC-001, merges at MC-008
+- Track A (widgets): MC-003 → MC-005 → MC-006 → MC-007
+- Track B (config): MC-002 — can proceed independently after MC-001, merges at MC-006
+- Track C (utilities): MC-004 — can proceed independently after MC-001, merges at MC-005
+
+**Each issue includes:**
+- Implementation
+- Unit tests (validated with `uv run pytest`)
+- Documentation page (validated with `uv run mkdocs build`)
 
 **Companion documents:**
 - `phase-1-tasks.md` — detailed task tables per substage

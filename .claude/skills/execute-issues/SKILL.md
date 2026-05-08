@@ -75,10 +75,12 @@ Execute the tasks described in the issue. Follow the architecture in `spec/archi
 
 Run validation checks:
 
-1. **Syntax check:** `python -m py_compile {changed_files}` for each new/modified .py file
-2. **Import check:** `python -c "import {module}"` for each new module
-3. **Tests:** `python -m pytest tests/ -x --tb=short` if tests exist
-4. **Acceptance criteria:** go through each criterion from the issue and verify
+1. **Syntax check:** `uv run python -m py_compile {changed_files}` for each new/modified .py file
+2. **Import check:** `uv run python -c "import {module}"` for each new module
+3. **Tests:** `uv run pytest tests/ -x --tb=short` if tests exist
+4. **Lint:** `uv run ruff check mycom/` — no errors
+5. **Docs:** `uv run mkdocs build --strict` — no warnings
+6. **Acceptance criteria:** go through each criterion from the issue and verify
 
 Record pass/fail for each check.
 

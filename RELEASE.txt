@@ -1,6 +1,13 @@
 MyCom — Release History
 =======================
 
-Version 0.1.0 (unreleased)
+Version 0.1.0 (2026-05-08)
 ---------------------------
-- Phase 1: Foundation — in progress
+- MC-001: Project scaffold and package structure — uv-managed Python project with hatchling build
+- MC-002: Configuration and key bindings — TOML config loader with frozen dataclasses, key binding registry
+- MC-003: Core widgets — FileList DataTable, StatusBar, PathBar, AppHeader, modal dialogs
+- MC-004: Filesystem utilities — FileEntry dataclass, directory listing, format helpers
+- MC-005: Panel system and file browser panel — BasePanel abstract class, FileBrowserPanel with sort/filter
+- MC-006: Application shell and dual-panel layout — Dual-panel Textual app with Tab switching, F-key bindings
+- MC-007: File navigation, quick filter, and sorting — Enter/Backspace navigation, real-time filter, multi-field sort
+- MC-008: Documentation site and API reference — MkDocs Material with auto-generated API docs

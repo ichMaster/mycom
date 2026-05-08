@@ -6,6 +6,7 @@ from pathlib import Path
 
 from textual.app import ComposeResult
 
+from mycom.operations.sort import sort_entries
 from mycom.panels.base import BasePanel, PanelMode
 from mycom.utils.fs import FileEntry, format_date, format_permissions, format_size, list_directory
 from mycom.widgets.file_list import FileList
@@ -33,6 +34,9 @@ class FileBrowserPanel(BasePanel):
         self._file_list = FileList()
         self._show_hidden = False
         self._entries: list[FileEntry] = []
+        self._sort_field = "name"
+        self._sort_ascending = True
+        self._filter_text = ""
 
     def compose(self) -> ComposeResult:
         yield self._path_bar
@@ -44,6 +48,10 @@ class FileBrowserPanel(BasePanel):
     def refresh_listing(self) -> None:
         """Reload the directory listing from the filesystem."""
         self._entries = list_directory(self._current_path, show_hidden=self._show_hidden)
+        sorted_entries = sort_entries(self._entries, self._sort_field, self._sort_ascending)
+        if self._filter_text:
+            ft = self._filter_text.lower()
+            sorted_entries = [e for e in sorted_entries if ft in e.name.lower()]
         display_entries = [
             {
                 "name": e.name,
@@ -53,7 +61,7 @@ class FileBrowserPanel(BasePanel):
                 "is_dir": e.is_dir,
                 "is_symlink": e.is_symlink,
             }
-            for e in self._entries
+            for e in sorted_entries
         ]
         self._file_list.load_directory(display_entries, self._current_path)
         self._path_bar.path = self._current_path
@@ -93,3 +101,34 @@ class FileBrowserPanel(BasePanel):
     def deactivate(self) -> None:
         super().deactivate()
         self._path_bar.set_active(False)
+
+    def set_sort(self, field: str) -> None:
+        """Set sort field. If same field, toggle direction."""
+        if self._sort_field == field:
+            self._sort_ascending = not self._sort_ascending
+        else:
+            self._sort_field = field
+            self._sort_ascending = True
+        self.refresh_listing()
+
+    @property
+    def sort_field(self) -> str:
+        return self._sort_field
+
+    @property
+    def sort_ascending(self) -> bool:
+        return self._sort_ascending
+
+    def set_filter(self, text: str) -> None:
+        """Set the quick filter text."""
+        self._filter_text = text
+        self.refresh_listing()
+
+    def clear_filter(self) -> None:
+        """Clear the quick filter."""
+        self._filter_text = ""
+        self.refresh_listing()
+
+    @property
+    def filter_text(self) -> str:
+        return self._filter_text

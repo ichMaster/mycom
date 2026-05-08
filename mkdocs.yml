@@ -15,6 +15,7 @@ nav:
   - Keybindings: keybindings.md
   - Widgets: widgets.md
   - Panels: panels.md
+  - Navigation: navigation.md
   - Architecture: architecture.md
 
 plugins:

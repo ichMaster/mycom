@@ -30,6 +30,26 @@ class MyComApp(App):
             event.prevent_default()
             event.stop()
             self.action_switch_panel()
+        elif event.key == "enter":
+            self._handle_enter()
+        elif event.key == "backspace":
+            self.active_panel.navigate_up()
+
+    def _handle_enter(self) -> None:
+        panel = self.active_panel
+        name = panel.file_list.selected_name
+        if name is None:
+            return
+        if name == "__parent__":
+            panel.navigate_up()
+            return
+        target = panel.current_path / name
+        if target.is_dir():
+            try:
+                panel.navigate_to(target)
+            except PermissionError:
+                self.notify("Permission denied", severity="error")
+        # File open is handled by viewer/editor in later phases
 
     def __init__(self) -> None:
         super().__init__()

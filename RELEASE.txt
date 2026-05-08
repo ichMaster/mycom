@@ -1,0 +1,6 @@
+MyCom — Release History
+=======================
+
+Version 0.1.0 (unreleased)
+---------------------------
+- Phase 1: Foundation — in progress

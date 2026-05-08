@@ -11,12 +11,16 @@ theme:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
-  - Configuration: configuration.md
-  - Keybindings: keybindings.md
-  - Widgets: widgets.md
-  - Panels: panels.md
-  - Navigation: navigation.md
-  - Architecture: architecture.md
+  - User Guide:
+    - Configuration: configuration.md
+    - Keybindings: keybindings.md
+    - Navigation: navigation.md
+  - Components:
+    - Widgets: widgets.md
+    - Panels: panels.md
+    - Architecture: architecture.md
+  - Development: development.md
+  - API Reference: reference/
 
 plugins:
   - search
@@ -26,6 +30,11 @@ plugins:
           options:
             show_source: true
             show_root_heading: true
+  - gen-files:
+      scripts:
+        - docs/gen_ref_pages.py
+  - literate-nav:
+      nav_file: SUMMARY.md
 
 markdown_extensions:
   - admonition

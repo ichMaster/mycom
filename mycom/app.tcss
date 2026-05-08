@@ -1,5 +1,6 @@
 Screen {
     layout: vertical;
+    background: #000080;
 }
 
 #panel-container {
@@ -19,7 +20,7 @@ StatusBar {
 AppHeader {
     dock: top;
     height: 1;
-    background: $primary;
-    color: $text;
+    background: #008080;
+    color: #000000;
     text-align: center;
 }

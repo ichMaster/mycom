@@ -14,13 +14,13 @@ class PathBar(Widget):
     DEFAULT_CSS = """
     PathBar {
         height: 1;
-        background: $primary;
-        color: $text;
+        background: #008080;
+        color: #000000;
         padding: 0 1;
     }
     PathBar.inactive {
-        background: $surface;
-        color: $text-muted;
+        background: #000080;
+        color: #00ffff;
     }
     """
 

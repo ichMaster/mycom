@@ -15,7 +15,7 @@
 
 ## Phase 2: File Operations
 
-**Goal:** Core file management capabilities.
+**Goal:** Core file management capabilities and panel view modes.
 
 - [ ] Copy files/directories (F5) with progress indication
 - [ ] Move/rename files (F6)
@@ -24,6 +24,8 @@
 - [ ] Multi-select files (Insert key / Shift+arrows)
 - [ ] Inline rename (single file quick rename)
 - [ ] Error handling and permission dialogs
+- [ ] Panel view modes (LCtrl+1 Brief, LCtrl+2 Medium, LCtrl+3 Full)
+- [ ] File highlighting by type (directories white, executables green, archives magenta, temp files brown — matching FAR defaults)
 
 ## Phase 3: Search and Sort
 

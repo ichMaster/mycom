@@ -26,19 +26,21 @@ class StatusBar(Widget):
     StatusBar {
         dock: bottom;
         height: 1;
-        background: $surface;
+        background: #000000;
     }
     StatusBar Horizontal {
         width: 1fr;
         height: 1;
+        background: #000000;
     }
     StatusBar .hint-key {
-        color: $text;
-        background: $primary;
-        padding: 0 1;
+        color: #c0c0c0;
+        background: #000000;
+        padding: 0 0;
     }
     StatusBar .hint-label {
-        color: $text;
+        color: #000000;
+        background: #008080;
         padding: 0 1;
     }
     """

@@ -13,8 +13,8 @@ class AppHeader(Widget):
     AppHeader {
         dock: top;
         height: 1;
-        background: $primary;
-        color: $text;
+        background: #008080;
+        color: #000000;
         content-align: center middle;
     }
     """

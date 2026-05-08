@@ -13,6 +13,22 @@ class FileList(DataTable):
     DEFAULT_CSS = """
     FileList {
         height: 1fr;
+        background: #000080;
+        color: #00ffff;
+    }
+    FileList > .datatable--header {
+        background: #000080;
+        color: #ffff00;
+    }
+    FileList > .datatable--cursor {
+        background: #008080;
+        color: #000000;
+    }
+    FileList > .datatable--even-row {
+        background: #000080;
+    }
+    FileList > .datatable--odd-row {
+        background: #000080;
     }
     """
 
@@ -21,7 +37,7 @@ class FileList(DataTable):
         self._current_path: Path = Path.cwd()
         self._entries: list[dict] = []
         self.cursor_type = "row"
-        self.zebra_stripes = True
+        self.zebra_stripes = False
 
     def on_mount(self) -> None:
         self.add_columns("", "Name", "Size", "Modified", "Perms")
@@ -38,13 +54,18 @@ class FileList(DataTable):
         self.clear()
 
         if path != Path("/"):
-            self.add_row("📁", "..", "", "", "", key="__parent__")
+            self.add_row("..", "..", "", "", "", key="__parent__")
 
         dirs = [e for e in entries if e.get("is_dir")]
         files = [e for e in entries if not e.get("is_dir")]
 
         for entry in dirs + files:
-            icon = "🔗" if entry.get("is_symlink") else ("📁" if entry.get("is_dir") else "📄")
+            if entry.get("is_symlink"):
+                icon = "~"
+            elif entry.get("is_dir"):
+                icon = "\\"
+            else:
+                icon = " "
             self.add_row(
                 icon,
                 entry["name"],

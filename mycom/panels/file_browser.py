@@ -19,11 +19,12 @@ class FileBrowserPanel(BasePanel):
     DEFAULT_CSS = """
     FileBrowserPanel {
         height: 1fr;
-        border: solid $secondary;
+        border: solid #00ffff;
         layout: vertical;
+        background: #000080;
     }
     FileBrowserPanel.active {
-        border: solid $primary;
+        border: solid #00ffff;
     }
     """
 

@@ -18,14 +18,16 @@ class ConfirmDialog(ModalScreen[bool]):
     ConfirmDialog > Vertical {
         width: 50;
         height: auto;
-        border: thick $primary;
-        background: $surface;
+        border: thick #000000;
+        background: #c0c0c0;
+        color: #000000;
         padding: 1 2;
     }
     ConfirmDialog Label {
         width: 1fr;
         text-align: center;
         margin: 1 0;
+        color: #000000;
     }
     ConfirmDialog Horizontal {
         width: 1fr;
@@ -34,6 +36,8 @@ class ConfirmDialog(ModalScreen[bool]):
     }
     ConfirmDialog Button {
         margin: 0 2;
+        background: #c0c0c0;
+        color: #000000;
     }
     """
 
@@ -68,15 +72,19 @@ class InputDialog(ModalScreen[str | None]):
     InputDialog > Vertical {
         width: 60;
         height: auto;
-        border: thick $primary;
-        background: $surface;
+        border: thick #000000;
+        background: #c0c0c0;
+        color: #000000;
         padding: 1 2;
     }
     InputDialog Label {
         margin: 1 0;
+        color: #000000;
     }
     InputDialog Input {
         margin: 1 0;
+        background: #008080;
+        color: #000000;
     }
     InputDialog Horizontal {
         width: 1fr;
@@ -85,6 +93,8 @@ class InputDialog(ModalScreen[str | None]):
     }
     InputDialog Button {
         margin: 0 2;
+        background: #c0c0c0;
+        color: #000000;
     }
     """
 
@@ -122,14 +132,16 @@ class ProgressDialog(ModalScreen[None]):
     ProgressDialog > Vertical {
         width: 50;
         height: auto;
-        border: thick $primary;
-        background: $surface;
+        border: thick #000000;
+        background: #c0c0c0;
+        color: #000000;
         padding: 1 2;
     }
     ProgressDialog Label {
         width: 1fr;
         text-align: center;
         margin: 1 0;
+        color: #000000;
     }
     ProgressDialog ProgressBar {
         margin: 1 0;

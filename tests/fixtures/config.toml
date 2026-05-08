@@ -1,0 +1,22 @@
+[general]
+show_hidden = true
+confirm_delete = false
+default_sort = "size"
+default_sort_direction = "desc"
+
+[keybindings]
+copy = "ctrl+c"
+quit = "ctrl+q"
+delete = "delete"
+
+[llm]
+api_key_env = "MY_CLAUDE_KEY"
+model = "claude-opus-4-6"
+max_context_files = 5
+
+[plugins.viewers]
+".json" = "json-pretty-viewer"
+".md" = "markdown-viewer"
+
+[plugins.editors]
+".py" = "default-text-editor"

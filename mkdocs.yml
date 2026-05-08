@@ -13,6 +13,7 @@ nav:
   - Getting Started: getting-started.md
   - Configuration: configuration.md
   - Keybindings: keybindings.md
+  - Widgets: widgets.md
 
 plugins:
   - search

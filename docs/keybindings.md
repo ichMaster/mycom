@@ -1,17 +1,17 @@
 # Key Bindings
 
 Every binding is resolved through one keymap registry (`mycom/keymap.py`): a `Command`
-dataclass maps `action -> key(s) -> context -> label`. `mycom/app.py` builds Textual's runtime
-bindings from this registry (`App.bind`) instead of hard-coding key strings — the same registry
-will drive the F0.14 key bar (v0.2) and the F9 menus (v1.8), so labels can never drift from
-actual bindings.
+dataclass maps `action -> key(s) -> context -> label -> slot`. `mycom/app.py` builds Textual's
+runtime bindings from this registry (`App.bind`) instead of hard-coding key strings, and the key
+bar (below) is generated from the same registry's `slot` field — the F9 menus (v1.8) will be
+too — so labels can never drift from actual bindings.
 
 Three actions (`switch_panel`, `open`, `go_up`) are handled in `MyComApp.on_key` instead of
 `App.bind`, because they must intercept the key before Textual's own widget-level bindings see
 it — the focused `DataTable` already claims `enter` for its own cursor-select action, and `Tab`
 is the framework's default focus-cycling key.
 
-## Implemented (v0.1)
+## Implemented
 
 | Key | Action | Behavior |
 |-----|--------|----------|
@@ -47,6 +47,33 @@ Notes:
 `F1` (`help`), `F3` (`view`), `F4` (`edit`), `F5` (`copy`), `F6` (`move`), `F7` (`mkdir`), `F8`
 (`delete`) are already declared in the keymap registry — pressing them is a safe no-op today.
 They gain handlers with file operations (v0.4) and the viewer/editor (v0.6).
+
+## Key bar
+
+`mycom/widgets/status_bar.py`'s `StatusBar` renders the ten F1-F10 slots from
+`Keymap.key_bar_slots("panel")` — each `Command` in the registry declares a `slot: int | None`
+(FAR's F1-F10 convention; `None` for actions with no key-bar presence, e.g. `switch_panel` or the
+sort/view/resize keys). A slot with no assigned action renders empty rather than a stale label.
+Clicking a slot calls `App.run_action` with the same action name its key would — currently a
+no-op for the reserved actions above, exactly like pressing the key itself.
+
+## Dialogs
+
+Every dialog (`mycom/widgets/dialog.py`) is a subclass of `DialogKit`, the one modal engine every
+dialog builds on:
+
+- `Tab`/`Shift+Tab` cycle focus through every focusable widget (Textual's default chain,
+  including a text `Input` if the dialog has one).
+- `Left`/`Up`/`Right`/`Down` cycle focus among the dialog's **buttons only** — they never land on
+  an `Input`, so keyboard-only navigation can't get stranded there (an `Input`'s own arrow keys
+  move the text cursor while it has focus, as expected).
+- A button's hotkey letter (shown underlined) activates it: bare on a plain keypress when no
+  `Input` is focused, or with `Alt+letter` unconditionally. Two buttons in the same dialog can't
+  share a hotkey — `DialogKit` raises at construction if they do.
+- `Enter` activates the dialog's default button; `Esc` always dismisses safely with a
+  caller-supplied cancel value.
+- Dialogs stack (Textual's native `ModalScreen` behavior) — a dialog can open another (e.g. an
+  error) on top of itself.
 
 ## Overriding a binding
 

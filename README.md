@@ -17,6 +17,10 @@ Built with Python and Textual.
     View modes               Brief / Full / Wide (Ctrl+1/2/3)
     Sorting                  by name, extension, date, or size, with a header direction glyph
     Quick filter             type to filter files in real-time
+    Far classic theme        one palette file drives every color; renders on truecolor and
+                              256-color terminals
+    Dialog kit                keyboard-navigable modals: Tab/arrows/hotkeys/Enter/Esc, stackable
+    Key bar                  F1-F10 labels generated from the keymap (never drifts); clickable
     Structured logging       env-configurable, file-based (never stdout — owns the terminal)
     File operations          copy/move/delete/mkdir, viewer, editor, AI palette, Claude Code
                               integration — coming in later v0 phases (see spec/roadmap.md)
@@ -71,6 +75,19 @@ directory shows an error dialog instead of a silent empty panel.
 (delete) are already bound in the keymap registry but have no handler yet — they arrive with
 file operations (v0.4) and the viewer/editor (v0.6).
 
+### Key Bar
+
+The bottom row shows all ten F-key slots, generated from the keymap registry — a label can never
+drift from its actual binding, and an unassigned slot (F2, F9 — reserved for menus, v1.8) renders
+empty rather than stale. Click a slot to run the same action its key would.
+
+### Dialogs
+
+Every dialog (error messages, confirmations, text prompts) is built on one keyboard-navigable
+engine: `Tab`/`Shift+Tab` and arrow keys cycle focus between buttons, a button's underlined
+letter activates it (bare, or `Alt+letter` even while a text field has focus), `Enter` activates
+the default button, and `Esc` always cancels safely. Dialogs can stack.
+
 ### View Modes
 
     Brief   names only, laid out in as many columns as fit the panel width
@@ -78,7 +95,9 @@ file operations (v0.4) and the viewer/editor (v0.6).
     Wide    name, size (with column headers)
 
 Directories show `<DIR>` in the size column. Long names truncate with `…` in the table; the
-panel footer always shows the cursor row's full name plus the item count.
+panel footer shows the item count, a selection count placeholder (`0 selected` until v0.3's
+selection model lands), and the cursor row's full name. The passive panel's footer additionally
+shows a free-space placeholder (not real disk-usage data yet).
 
 ### Quick Filter
 

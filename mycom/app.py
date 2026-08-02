@@ -15,8 +15,10 @@ from mycom.fileops import (
     ConflictTypeMismatchError,
     OpProgress,
     build_plan,
+    execute_move_plan,
     execute_plan,
     path_contains,
+    same_filesystem,
 )
 from mycom.keymap import Keymap
 from mycom.logging_setup import configure_logging
@@ -291,7 +293,7 @@ class MyComApp(App):
             if not target_text:
                 return
             target_dir = Path(target_text)
-            if self._refuses_copy_target(sources, target_dir):
+            if self._refuses_operation_target(sources, target_dir):
                 self.push_screen(
                     ErrorDialog(
                         "Cannot copy: the destination is the source itself, inside it, "
@@ -312,9 +314,9 @@ class MyComApp(App):
         )
 
     @staticmethod
-    def _refuses_copy_target(sources: list[Path], target_dir: Path) -> bool:
-        """Refuse copying a source into itself, into its own subdirectory, or
-        onto itself in place (same dir + same name — would truncate the
+    def _refuses_operation_target(sources: list[Path], target_dir: Path) -> bool:
+        """Refuse a copy/move source into itself, into its own subdirectory,
+        or onto itself in place (same dir + same name — would truncate the
         source, see mycom.fileops.engine.copy_entry's same-file guard)."""
         resolved_target = target_dir.resolve()
         for src in sources:
@@ -360,6 +362,92 @@ class MyComApp(App):
         progress_dialog.dismiss(None)
         self.push_screen(
             ErrorDialog(f"Cannot copy: a file exists where a folder is expected at {exc.entry.dst}")
+        )
+        self.inactive_panel.refresh_listing()
+
+    def action_move(self) -> None:
+        panel = self.active_panel
+        sources = panel.get_selected_files()
+        if not sources:
+            return
+        label = sources[0].name if len(sources) == 1 else f"{len(sources)} files"
+        default_target = self.inactive_panel.current_path
+
+        def on_dismiss(target_text: str | None) -> None:
+            if not target_text:
+                return
+            target_dir = Path(target_text)
+            if self._refuses_operation_target(sources, target_dir):
+                self.push_screen(
+                    ErrorDialog(
+                        "Cannot move: the destination is the source itself, inside it, "
+                        "or would overwrite it in place."
+                    )
+                )
+                return
+            try:
+                target_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                self.push_screen(ErrorDialog(f"Cannot create {target_dir}: {exc.strerror or exc}"))
+                return
+            self._run_move(panel, sources, target_dir)
+
+        self.push_screen(
+            InputDialog(f'Move "{label}" to:', default=str(default_target)),
+            callback=on_dismiss,
+        )
+
+    def _run_move(self, panel: FileBrowserPanel, sources: list[Path], target_dir: Path) -> None:
+        plan = build_plan(sources, target_dir)
+        cancel = CancelToken()
+        conflict_policy = ConflictDialogPolicy(self, target_dir)
+        # Same-filesystem entries move via instant rename() — no progress
+        # dialog flicker for what's effectively a zero-cost operation. Only a
+        # genuinely cross-device plan (copy + verified delete) gets one.
+        same_fs = all(same_filesystem(entry.src, target_dir) for entry in plan.entries)
+        progress_dialog = (
+            None
+            if same_fs
+            else OperationProgressDialog(
+                cancel, title=f'Moving to "{target_dir}"', total_bytes=plan.total_bytes
+            )
+        )
+        if progress_dialog is not None:
+            self.push_screen(progress_dialog)
+
+        def on_progress(progress: OpProgress) -> None:
+            if progress_dialog is not None:
+                self.call_from_thread(progress_dialog.update_progress, progress)
+
+        def worker() -> None:
+            try:
+                execute_move_plan(plan, cancel, conflict_policy, on_progress)
+            except ConflictTypeMismatchError as exc:
+                self.call_from_thread(self._finish_move_error, progress_dialog, exc)
+                return
+            self.call_from_thread(self._finish_move, progress_dialog, panel, sources)
+
+        self.run_worker(worker, thread=True)
+
+    def _finish_move(
+        self,
+        progress_dialog: OperationProgressDialog | None,
+        panel: FileBrowserPanel,
+        sources: list[Path],
+    ) -> None:
+        if progress_dialog is not None:
+            progress_dialog.dismiss(None)
+        self.inactive_panel.refresh_listing()
+        self.active_panel.refresh_listing()
+        panel.deselect(src.name for src in sources)
+
+    def _finish_move_error(
+        self, progress_dialog: OperationProgressDialog | None, exc: ConflictTypeMismatchError
+    ) -> None:
+        if progress_dialog is not None:
+            progress_dialog.dismiss(None)
+        self.push_screen(
+            ErrorDialog(f"Cannot move: a file exists where a folder is expected at {exc.entry.dst}")
         )
         self.inactive_panel.refresh_listing()
 

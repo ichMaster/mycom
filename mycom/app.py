@@ -78,11 +78,13 @@ class MyComApp(App):
         self._right_panel: FileBrowserPanel | None = None
         self._active_side: str = "left"
         self._resize_index: int = _RESIZE_STEPS.index(50)
+        self._show_hidden: bool = False  # re-derived from config in compose()
 
     def compose(self) -> ComposeResult:
         general = self._config.general
+        self._show_hidden = general.show_hidden
         panel_kwargs = {
-            "show_hidden": general.show_hidden,
+            "show_hidden": self._show_hidden,
             "sort_field": general.default_sort,
             "sort_ascending": general.default_sort_direction == "asc",
         }
@@ -168,6 +170,12 @@ class MyComApp(App):
 
     def action_select_invert(self) -> None:
         self.active_panel.invert_selection()
+
+    def action_toggle_hidden(self) -> None:
+        """Ctrl+H: global toggle — both panels update from a single keypress."""
+        self._show_hidden = not self._show_hidden
+        self._left_panel.set_show_hidden(self._show_hidden)
+        self._right_panel.set_show_hidden(self._show_hidden)
 
     def _open_mask_dialog(self, *, select: bool) -> None:
         panel = self.active_panel

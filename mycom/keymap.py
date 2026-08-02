@@ -53,6 +53,7 @@ DEFAULT_COMMANDS: tuple[Command, ...] = (
     Command("select_mask", ("plus", "alt+equals_sign"), "panel", "Select"),
     Command("deselect_mask", ("minus", "alt+minus"), "panel", "Deselect"),
     Command("select_invert", ("asterisk", "alt+8"), "panel", "Invert"),
+    Command("toggle_hidden", ("ctrl+h",), "panel", "Hidden"),
 )
 
 

@@ -116,6 +116,17 @@ class FileBrowserPanel(BasePanel):
         self._entries = entries
         self._render_entries()
 
+    def set_show_hidden(self, value: bool) -> None:
+        """Ctrl+H: toggle hidden-file visibility, preserving the cursor
+        position where possible (falls back to the first row otherwise)."""
+        if value == self._show_hidden:
+            return
+        self._show_hidden = value
+        cursor_name = self._file_list.selected_name
+        self.refresh_listing()
+        if cursor_name:
+            self._file_list.select_by_name(cursor_name)
+
     def _render_entries(self) -> None:
         sorted_entries = sort_entries(self._entries, self._sort_field, self._sort_ascending)
         if self._filter_text:

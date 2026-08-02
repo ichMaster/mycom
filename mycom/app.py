@@ -8,10 +8,15 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 
 from mycom.config import load_config
+from mycom.keymap import Keymap
 from mycom.panels.file_browser import FileBrowserPanel
-from mycom.utils.keys import KeyBindings
 from mycom.widgets.header import AppHeader
 from mycom.widgets.status_bar import StatusBar
+
+# Actions that must intercept a key before Textual's own widget-level bindings
+# see it (DataTable claims "enter" for select_cursor; Tab is the framework's
+# default focus-cycling key) — handled in on_key, not App.bind.
+_INTERCEPTED_ACTIONS = frozenset({"switch_panel", "open", "go_up"})
 
 
 class MyComApp(App):
@@ -20,19 +25,15 @@ class MyComApp(App):
     TITLE = "MyCom"
     CSS_PATH = "app.tcss"
 
-    BINDINGS = [
-        ("f10", "quit", "Quit"),
-        ("ctrl+q", "quit", "Quit"),
-    ]
-
     def on_key(self, event) -> None:
-        if event.key == "tab":
+        actions = self._keymap.actions_for_key(event.key, context="panel")
+        if "switch_panel" in actions:
             event.prevent_default()
             event.stop()
             self.action_switch_panel()
-        elif event.key == "enter":
+        elif "open" in actions:
             self._handle_enter()
-        elif event.key == "backspace":
+        elif "go_up" in actions:
             self.active_panel.navigate_up()
 
     def _handle_enter(self) -> None:
@@ -54,7 +55,11 @@ class MyComApp(App):
     def __init__(self) -> None:
         super().__init__()
         self._config = load_config()
-        self._keybindings = KeyBindings(self._config.keybindings)
+        self._keymap = Keymap(self._config.keybindings)
+        for key, action, label in self._keymap.bindings_for_context("panel"):
+            if action in _INTERCEPTED_ACTIONS:
+                continue
+            self.bind(key, action, description=label)
         self._left_panel: FileBrowserPanel | None = None
         self._right_panel: FileBrowserPanel | None = None
         self._active_side: str = "left"

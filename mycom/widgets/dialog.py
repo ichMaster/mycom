@@ -156,213 +156,79 @@ class DialogKit(ModalScreen[DialogResult], Generic[DialogResult]):
         self.dismiss(self._cancel_result)
 
 
-class ConfirmDialog(ModalScreen[bool]):
-    """Modal Yes/No confirmation dialog."""
-
-    DEFAULT_CSS = """
-    ConfirmDialog {
-        align: center middle;
-    }
-    ConfirmDialog > Vertical {
-        width: 50;
-        height: auto;
-        border: thick $dialog-fg;
-        background: $dialog-bg;
-        color: $dialog-fg;
-        padding: 1 2;
-    }
-    ConfirmDialog Label {
-        width: 1fr;
-        text-align: center;
-        margin: 1 0;
-        color: $dialog-fg;
-    }
-    ConfirmDialog Horizontal {
-        width: 1fr;
-        height: auto;
-        align: center middle;
-    }
-    ConfirmDialog Button {
-        margin: 0 2;
-        background: $dialog-bg;
-        color: $dialog-fg;
-    }
-    """
+class ConfirmDialog(DialogKit[bool]):
+    """Modal Yes/No confirmation dialog, built on DialogKit."""
 
     def __init__(self, message: str, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._message = message
+        super().__init__(
+            message=message,
+            buttons=(
+                DialogButton("Yes", "yes", hotkey="y", default=True, variant="primary"),
+                DialogButton("No", "no", hotkey="n"),
+            ),
+            cancel_result=False,
+            **kwargs,
+        )
 
-    def compose(self) -> ComposeResult:
-        with Vertical():
-            yield Label(self._message)
-            with Horizontal():
-                yield Button("Yes", variant="primary", id="yes")
-                yield Button("No", variant="default", id="no")
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        self.dismiss(event.button.id == "yes")
-
-    def key_escape(self) -> None:
-        self.dismiss(False)
-
-    def key_enter(self) -> None:
-        self.dismiss(True)
+    def _result_for(self, button_id: str) -> bool:
+        return button_id == "yes"
 
 
-class InputDialog(ModalScreen[str | None]):
-    """Modal text input dialog."""
-
-    DEFAULT_CSS = """
-    InputDialog {
-        align: center middle;
-    }
-    InputDialog > Vertical {
-        width: 60;
-        height: auto;
-        border: thick $dialog-fg;
-        background: $dialog-bg;
-        color: $dialog-fg;
-        padding: 1 2;
-    }
-    InputDialog Label {
-        margin: 1 0;
-        color: $dialog-fg;
-    }
-    InputDialog Input {
-        margin: 1 0;
-        background: $dialog-input-bg;
-        color: $dialog-input-fg;
-    }
-    InputDialog Horizontal {
-        width: 1fr;
-        height: auto;
-        align: center middle;
-    }
-    InputDialog Button {
-        margin: 0 2;
-        background: $dialog-bg;
-        color: $dialog-fg;
-    }
-    """
+class InputDialog(DialogKit[str | None]):
+    """Modal text input dialog, built on DialogKit."""
 
     def __init__(self, prompt: str, default: str = "", **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._prompt = prompt
+        super().__init__(
+            message=prompt,
+            buttons=(
+                DialogButton("OK", "ok", hotkey="o", default=True, variant="primary"),
+                DialogButton("Cancel", "cancel", hotkey="c"),
+            ),
+            cancel_result=None,
+            **kwargs,
+        )
         self._default = default
 
-    def compose(self) -> ComposeResult:
-        with Vertical():
-            yield Label(self._prompt)
-            yield Input(value=self._default, id="input")
-            with Horizontal():
-                yield Button("OK", variant="primary", id="ok")
-                yield Button("Cancel", variant="default", id="cancel")
+    def compose_body(self) -> ComposeResult:
+        yield Input(value=self._default, id="input")
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "ok":
-            input_widget = self.query_one("#input", Input)
-            self.dismiss(input_widget.value)
-        else:
-            self.dismiss(None)
-
-    def key_escape(self) -> None:
-        self.dismiss(None)
+    def _result_for(self, button_id: str) -> str | None:
+        if button_id == "ok":
+            return self.query_one("#input", Input).value
+        return None
 
 
-class ErrorDialog(ModalScreen[None]):
-    """Modal error message with a single OK button.
-
-    Ad-hoc for v0.1 (same ModalScreen pattern as ConfirmDialog); rebuilt on
-    the dialog kit in v0.2 along with the others.
-    """
-
-    DEFAULT_CSS = """
-    ErrorDialog {
-        align: center middle;
-    }
-    ErrorDialog > Vertical {
-        width: 60;
-        height: auto;
-        border: thick $dialog-fg;
-        background: $dialog-bg;
-        color: $dialog-fg;
-        padding: 1 2;
-    }
-    ErrorDialog Label {
-        width: 1fr;
-        text-align: center;
-        margin: 1 0;
-        color: $dialog-fg;
-    }
-    ErrorDialog Horizontal {
-        width: 1fr;
-        height: auto;
-        align: center middle;
-    }
-    ErrorDialog Button {
-        margin: 0 2;
-        background: $dialog-bg;
-        color: $dialog-fg;
-    }
-    """
+class ErrorDialog(DialogKit[None]):
+    """Modal error message with a single OK button, built on DialogKit."""
 
     def __init__(self, message: str, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._message = message
+        super().__init__(
+            message=message,
+            buttons=(DialogButton("OK", "ok", hotkey="o", default=True, variant="primary"),),
+            cancel_result=None,
+            **kwargs,
+        )
 
-    def compose(self) -> ComposeResult:
-        with Vertical():
-            yield Label(self._message)
-            with Horizontal():
-                yield Button("OK", variant="primary", id="ok")
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        self.dismiss(None)
-
-    def key_escape(self) -> None:
-        self.dismiss(None)
-
-    def key_enter(self) -> None:
-        self.dismiss(None)
+    def _result_for(self, button_id: str) -> None:
+        return None
 
 
-class ProgressDialog(ModalScreen[None]):
-    """Modal progress indicator dialog."""
-
-    DEFAULT_CSS = """
-    ProgressDialog {
-        align: center middle;
-    }
-    ProgressDialog > Vertical {
-        width: 50;
-        height: auto;
-        border: thick $dialog-fg;
-        background: $dialog-bg;
-        color: $dialog-fg;
-        padding: 1 2;
-    }
-    ProgressDialog Label {
-        width: 1fr;
-        text-align: center;
-        margin: 1 0;
-        color: $dialog-fg;
-    }
-    ProgressDialog ProgressBar {
-        margin: 1 0;
-    }
-    """
+class ProgressDialog(DialogKit[None]):
+    """Modal progress indicator, built on DialogKit. No buttons — a Cancel
+    affordance belongs to the operation engine (v0.4), not invented here."""
 
     def __init__(self, message: str = "Working...", total: float = 100, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._message = message
+        super().__init__(message=message, buttons=(), cancel_result=None, **kwargs)
         self._total = total
 
-    def compose(self) -> ComposeResult:
-        with Vertical():
-            yield Label(self._message)
-            yield ProgressBar(total=self._total, id="progress")
+    def compose_body(self) -> ComposeResult:
+        yield ProgressBar(total=self._total, id="progress")
 
     def update_progress(self, value: float) -> None:
         bar = self.query_one("#progress", ProgressBar)
         bar.update(progress=value)
+
+    def key_escape(self) -> None:
+        # No cancel affordance yet — dismissing would misleadingly suggest a
+        # running operation stopped. Revisit with the operation engine (v0.4).
+        pass

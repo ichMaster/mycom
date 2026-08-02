@@ -123,17 +123,34 @@ class DialogKit(ModalScreen[DialogResult], Generic[DialogResult]):
         if event.button.id is not None:
             self._activate(event.button.id)
 
+    def _cycle_button_focus(self, forward: bool) -> None:
+        """Move focus among Button widgets only.
+
+        Textual's generic focus_next()/focus_previous() walk every focusable
+        widget, including an Input — once arrow navigation lands there, the
+        Input's own key handling claims Left/Right for the text cursor and
+        arrows can never move focus away from it again (code review #1).
+        """
+        buttons = list(self.query(Button))
+        if not buttons:
+            return
+        if self.focused in buttons:
+            index = (buttons.index(self.focused) + (1 if forward else -1)) % len(buttons)
+        else:
+            index = 0
+        buttons[index].focus()
+
     def on_key(self, event) -> None:
         input_focused = isinstance(self.focused, Input)
 
         if not input_focused:
             if event.key in ("left", "up"):
                 event.stop()
-                self.focus_previous()
+                self._cycle_button_focus(forward=False)
                 return
             if event.key in ("right", "down"):
                 event.stop()
-                self.focus_next()
+                self._cycle_button_focus(forward=True)
                 return
 
         for button in self._buttons:

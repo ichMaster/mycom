@@ -3,13 +3,14 @@
 from pathlib import Path
 
 import pytest
-from textual.app import App, ComposeResult
+from textual.app import ComposeResult
 
 from mycom.panels.base import PanelMode
 from mycom.panels.file_browser import FileBrowserPanel
+from tests.support import ThemedApp
 
 
-class PanelTestApp(App):
+class PanelTestApp(ThemedApp):
     def compose(self) -> ComposeResult:
         yield FileBrowserPanel(start_path=Path.home())
 

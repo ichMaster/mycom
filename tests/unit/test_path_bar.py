@@ -3,12 +3,13 @@
 from pathlib import Path
 
 import pytest
-from textual.app import App, ComposeResult
+from textual.app import ComposeResult
 
 from mycom.widgets.path_bar import PathBar
+from tests.support import ThemedApp
 
 
-class PathBarApp(App):
+class PathBarApp(ThemedApp):
     def compose(self) -> ComposeResult:
         yield PathBar(path=Path("/home/user/documents"))
 

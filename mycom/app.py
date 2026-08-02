@@ -12,6 +12,7 @@ from mycom.keymap import Keymap
 from mycom.logging_setup import configure_logging
 from mycom.panels.file_browser import FileBrowserPanel
 from mycom.panels.views import ViewMode
+from mycom.theme import FAR_CLASSIC_THEME
 from mycom.widgets.header import AppHeader
 from mycom.widgets.status_bar import StatusBar
 
@@ -58,6 +59,8 @@ class MyComApp(App):
 
     def __init__(self) -> None:
         super().__init__()
+        self.register_theme(FAR_CLASSIC_THEME)
+        self.theme = "far-classic"
         configure_logging()
         self._config = load_config()
         self._keymap = Keymap(self._config.keybindings)

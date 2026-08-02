@@ -1,13 +1,14 @@
 """Tests for dialog widgets."""
 
 import pytest
-from textual.app import App, ComposeResult
+from textual.app import ComposeResult
 from textual.widgets import Static
 
 from mycom.widgets.dialog import ConfirmDialog, InputDialog
+from tests.support import ThemedApp
 
 
-class DialogTestApp(App):
+class DialogTestApp(ThemedApp):
     def compose(self) -> ComposeResult:
         yield Static("Dialog test host")
 

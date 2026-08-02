@@ -46,22 +46,22 @@ class FileList(DataTable):
     DEFAULT_CSS = """
     FileList {
         height: 1fr;
-        background: #000080;
-        color: #00ffff;
+        background: $panel-bg;
+        color: $panel-fg;
     }
     FileList > .datatable--header {
-        background: #000080;
-        color: #ffff00;
+        background: $panel-bg;
+        color: $header-fg;
     }
     FileList > .datatable--cursor {
-        background: #008080;
-        color: #000000;
+        background: $cursor-bg;
+        color: $cursor-fg;
     }
     FileList > .datatable--even-row {
-        background: #000080;
+        background: $panel-bg;
     }
     FileList > .datatable--odd-row {
-        background: #000080;
+        background: $panel-bg;
     }
     """
 

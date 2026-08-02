@@ -3,12 +3,13 @@
 from pathlib import Path
 
 import pytest
-from textual.app import App, ComposeResult
+from textual.app import ComposeResult
 
 from mycom.widgets.file_list import FileList
+from tests.support import ThemedApp
 
 
-class FileListApp(App):
+class FileListApp(ThemedApp):
     def compose(self) -> ComposeResult:
         yield FileList()
 

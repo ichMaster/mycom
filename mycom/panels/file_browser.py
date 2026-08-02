@@ -25,17 +25,17 @@ class FileBrowserPanel(BasePanel):
     DEFAULT_CSS = """
     FileBrowserPanel {
         height: 1fr;
-        border: solid #00ffff;
+        border: solid $panel-border;
         layout: vertical;
-        background: #000080;
+        background: $panel-bg;
     }
     FileBrowserPanel.active {
-        border: solid #00ffff;
+        border: solid $panel-border;
     }
     FileBrowserPanel > .footer {
         height: 1;
-        background: #000080;
-        color: #00ffff;
+        background: $panel-bg;
+        color: $panel-fg;
     }
     """
 

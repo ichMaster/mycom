@@ -1,12 +1,13 @@
 """Tests for StatusBar widget."""
 
 import pytest
-from textual.app import App, ComposeResult
+from textual.app import ComposeResult
 
 from mycom.widgets.status_bar import HINT_ITEMS, StatusBar
+from tests.support import ThemedApp
 
 
-class StatusBarApp(App):
+class StatusBarApp(ThemedApp):
     def compose(self) -> ComposeResult:
         yield StatusBar()
 

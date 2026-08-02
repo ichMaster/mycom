@@ -18,16 +18,16 @@ class ConfirmDialog(ModalScreen[bool]):
     ConfirmDialog > Vertical {
         width: 50;
         height: auto;
-        border: thick #000000;
-        background: #c0c0c0;
-        color: #000000;
+        border: thick $dialog-fg;
+        background: $dialog-bg;
+        color: $dialog-fg;
         padding: 1 2;
     }
     ConfirmDialog Label {
         width: 1fr;
         text-align: center;
         margin: 1 0;
-        color: #000000;
+        color: $dialog-fg;
     }
     ConfirmDialog Horizontal {
         width: 1fr;
@@ -36,8 +36,8 @@ class ConfirmDialog(ModalScreen[bool]):
     }
     ConfirmDialog Button {
         margin: 0 2;
-        background: #c0c0c0;
-        color: #000000;
+        background: $dialog-bg;
+        color: $dialog-fg;
     }
     """
 
@@ -72,19 +72,19 @@ class InputDialog(ModalScreen[str | None]):
     InputDialog > Vertical {
         width: 60;
         height: auto;
-        border: thick #000000;
-        background: #c0c0c0;
-        color: #000000;
+        border: thick $dialog-fg;
+        background: $dialog-bg;
+        color: $dialog-fg;
         padding: 1 2;
     }
     InputDialog Label {
         margin: 1 0;
-        color: #000000;
+        color: $dialog-fg;
     }
     InputDialog Input {
         margin: 1 0;
-        background: #008080;
-        color: #000000;
+        background: $dialog-input-bg;
+        color: $dialog-input-fg;
     }
     InputDialog Horizontal {
         width: 1fr;
@@ -93,8 +93,8 @@ class InputDialog(ModalScreen[str | None]):
     }
     InputDialog Button {
         margin: 0 2;
-        background: #c0c0c0;
-        color: #000000;
+        background: $dialog-bg;
+        color: $dialog-fg;
     }
     """
 
@@ -136,16 +136,16 @@ class ErrorDialog(ModalScreen[None]):
     ErrorDialog > Vertical {
         width: 60;
         height: auto;
-        border: thick #000000;
-        background: #c0c0c0;
-        color: #000000;
+        border: thick $dialog-fg;
+        background: $dialog-bg;
+        color: $dialog-fg;
         padding: 1 2;
     }
     ErrorDialog Label {
         width: 1fr;
         text-align: center;
         margin: 1 0;
-        color: #000000;
+        color: $dialog-fg;
     }
     ErrorDialog Horizontal {
         width: 1fr;
@@ -154,8 +154,8 @@ class ErrorDialog(ModalScreen[None]):
     }
     ErrorDialog Button {
         margin: 0 2;
-        background: #c0c0c0;
-        color: #000000;
+        background: $dialog-bg;
+        color: $dialog-fg;
     }
     """
 
@@ -189,16 +189,16 @@ class ProgressDialog(ModalScreen[None]):
     ProgressDialog > Vertical {
         width: 50;
         height: auto;
-        border: thick #000000;
-        background: #c0c0c0;
-        color: #000000;
+        border: thick $dialog-fg;
+        background: $dialog-bg;
+        color: $dialog-fg;
         padding: 1 2;
     }
     ProgressDialog Label {
         width: 1fr;
         text-align: center;
         margin: 1 0;
-        color: #000000;
+        color: $dialog-fg;
     }
     ProgressDialog ProgressBar {
         margin: 1 0;

@@ -26,9 +26,11 @@ def list_directory(
 ) -> list[FileEntry]:
     """List directory contents, returning FileEntry objects.
 
-    Returns an empty list on permission errors rather than raising, unless
-    ``strict`` is set — then a `PermissionError` (EACCES) is re-raised so
-    callers can distinguish "unreadable" from "empty".
+    Returns an empty list on errors opening `path` itself rather than raising,
+    unless ``strict`` is set — then any such `OSError` (EACCES, a vanished
+    directory, a path replaced by a file, …) is re-raised so callers can
+    distinguish "unreadable/gone" from "empty". Per-entry stat failures inside
+    the loop (e.g. a broken symlink) always stay lenient, strict or not.
     """
     try:
         entries = []
@@ -63,11 +65,9 @@ def list_directory(
                     )
                 )
         return entries
-    except PermissionError:
+    except OSError:
         if strict:
             raise
-        return []
-    except OSError:
         return []
 
 

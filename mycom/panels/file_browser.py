@@ -89,15 +89,16 @@ class FileBrowserPanel(BasePanel):
     def refresh_listing(self) -> None:
         """Reload the directory listing from the current path.
 
-        On EACCES, keeps the previous listing and path, and shows an error
-        dialog instead of silently displaying an empty panel.
+        On EACCES, ENOENT (vanished), or ENOTDIR (replaced by a file), keeps
+        the previous listing and path, and shows an error dialog instead of
+        silently displaying an empty panel.
         """
         try:
             entries = list_directory(
                 self._current_path, show_hidden=self._show_hidden, strict=True
             )
-        except PermissionError:
-            self._show_error(f"Permission denied: {self._current_path}")
+        except OSError as exc:
+            self._show_error(f"Cannot open {self._current_path}: {exc.strerror or exc}")
             return
         self._entries = entries
         self._render_entries()
@@ -136,12 +137,13 @@ class FileBrowserPanel(BasePanel):
             self.app.push_screen(ErrorDialog(message))
 
     def navigate_to(self, path: Path) -> None:
-        """Navigate to a new directory. Stays on the previous path on EACCES."""
+        """Navigate to a new directory. Stays on the previous path if it
+        can't be opened (EACCES, vanished, replaced by a file, …)."""
         target = path.resolve()
         try:
             entries = list_directory(target, show_hidden=self._show_hidden, strict=True)
-        except PermissionError:
-            self._show_error(f"Permission denied: {target}")
+        except OSError as exc:
+            self._show_error(f"Cannot open {target}: {exc.strerror or exc}")
             return
         self._current_path = target
         self._entries = entries

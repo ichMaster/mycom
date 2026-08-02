@@ -1,6 +1,19 @@
 MyCom — Release History
 =======================
 
+Version 0.4.0 (2026-08-03)
+---------------------------
+- File operations: Copy/Move (F5/F6) — same-filesystem move is an instant rename(), cross-device
+  is a verified copy-then-delete; Mkdir (F7) creates a nested a/b/c path in one step; Delete (F8)
+  with a confirmation ladder (routine + non-empty-directory + per-read-only-file) and the
+  confirm_delete config option now wired; Rename (Shift+F6) in place with the name's stem
+  pre-selected
+- Every operation runs on a background worker thread with live progress, bytes/files/speed/ETA,
+  and a real Cancel button; a six-choice conflict dialog (Overwrite/Skip/Rename/Overwrite All/
+  Skip All/Cancel) on any name collision, with "All" answers scoped to one operation
+- Code review fix: an unexpected OSError (permission denied, disk full, a vanished source) during
+  any file operation now shows a clean error dialog instead of crashing the app
+
 Version 0.3.0 (2026-08-03)
 ---------------------------
 - Selection model: Ins/Space toggle, mask select/deselect/invert, yellow highlight, live footer

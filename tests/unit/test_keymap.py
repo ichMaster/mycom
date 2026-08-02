@@ -65,7 +65,7 @@ def test_bindings_for_context():
     triples = {(key, action) for key, action, _label in bindings}
     assert ("ctrl+u", "panel_swap") in triples
     assert ("f5", "copy") in triples
-    assert len(bindings) == len(DEFAULT_COMMANDS)
+    assert len(bindings) == sum(len(cmd.keys) for cmd in DEFAULT_COMMANDS)
 
 
 def test_bindings_for_context_no_match():

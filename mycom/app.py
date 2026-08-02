@@ -19,6 +19,8 @@ from mycom.widgets.status_bar import StatusBar
 # default focus-cycling key) — handled in on_key, not App.bind.
 _INTERCEPTED_ACTIONS = frozenset({"switch_panel", "open", "go_up"})
 
+_RESIZE_STEPS = (30, 50, 70)
+
 
 class MyComApp(App):
     """MyCom dual-panel file manager application."""
@@ -65,6 +67,7 @@ class MyComApp(App):
         self._left_panel: FileBrowserPanel | None = None
         self._right_panel: FileBrowserPanel | None = None
         self._active_side: str = "left"
+        self._resize_index: int = _RESIZE_STEPS.index(50)
 
     def compose(self) -> ComposeResult:
         general = self._config.general
@@ -105,6 +108,36 @@ class MyComApp(App):
         self._active_side = "right" if self._active_side == "left" else "left"
         self.active_panel.activate()
         self.active_panel.file_list.focus()
+
+    def action_panel_swap(self) -> None:
+        """Swap both panels' paths and cursor positions (Ctrl+U).
+
+        Selections are not swapped — the selection model doesn't exist yet
+        (lands in v0.3).
+        """
+        left, right = self._left_panel, self._right_panel
+        left_path, right_path = left.current_path, right.current_path
+        left_cursor = left.file_list.selected_name
+        right_cursor = right.file_list.selected_name
+        left.navigate_to(right_path)
+        right.navigate_to(left_path)
+        if right_cursor is not None:
+            left.file_list.select_by_name(right_cursor)
+        if left_cursor is not None:
+            right.file_list.select_by_name(left_cursor)
+
+    def action_resize_grow(self) -> None:
+        self._resize_index = min(self._resize_index + 1, len(_RESIZE_STEPS) - 1)
+        self._apply_panel_widths()
+
+    def action_resize_shrink(self) -> None:
+        self._resize_index = max(self._resize_index - 1, 0)
+        self._apply_panel_widths()
+
+    def _apply_panel_widths(self) -> None:
+        pct = _RESIZE_STEPS[self._resize_index]
+        self.active_panel.styles.width = f"{pct}%"
+        self.inactive_panel.styles.width = "1fr"
 
 
 def main():

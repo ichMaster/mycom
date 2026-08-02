@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from textual.widgets import DataTable
+from textual.widgets.data_table import RowDoesNotExist
 
 
 class FileList(DataTable):
@@ -78,6 +79,16 @@ class FileList(DataTable):
     @property
     def current_path(self) -> Path:
         return self._current_path
+
+    def select_by_name(self, name: str) -> None:
+        """Move the cursor to the row keyed by `name`; falls back to row 0."""
+        if self.row_count == 0:
+            return
+        try:
+            row_index = self.get_row_index(name)
+        except RowDoesNotExist:
+            row_index = 0
+        self.move_cursor(row=row_index)
 
     @property
     def selected_name(self) -> str | None:

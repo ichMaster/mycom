@@ -31,7 +31,7 @@ DEFAULT_COMMANDS: tuple[Command, ...] = (
     Command("quit", ("f10",), "panel", "Quit"),
     Command("switch_panel", ("tab",), "panel", "Switch"),
     Command("open", ("enter",), "panel", "Open"),
-    Command("go_up", ("backspace",), "panel", "Up"),
+    Command("go_up", ("backspace", "ctrl+pageup"), "panel", "Up"),
     Command("first", ("home",), "panel", "First"),
     Command("last", ("end",), "panel", "Last"),
     Command("panel_swap", ("ctrl+u",), "panel", "Swap"),

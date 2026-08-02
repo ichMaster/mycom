@@ -122,6 +122,63 @@ class InputDialog(ModalScreen[str | None]):
         self.dismiss(None)
 
 
+class ErrorDialog(ModalScreen[None]):
+    """Modal error message with a single OK button.
+
+    Ad-hoc for v0.1 (same ModalScreen pattern as ConfirmDialog); rebuilt on
+    the dialog kit in v0.2 along with the others.
+    """
+
+    DEFAULT_CSS = """
+    ErrorDialog {
+        align: center middle;
+    }
+    ErrorDialog > Vertical {
+        width: 60;
+        height: auto;
+        border: thick #000000;
+        background: #c0c0c0;
+        color: #000000;
+        padding: 1 2;
+    }
+    ErrorDialog Label {
+        width: 1fr;
+        text-align: center;
+        margin: 1 0;
+        color: #000000;
+    }
+    ErrorDialog Horizontal {
+        width: 1fr;
+        height: auto;
+        align: center middle;
+    }
+    ErrorDialog Button {
+        margin: 0 2;
+        background: #c0c0c0;
+        color: #000000;
+    }
+    """
+
+    def __init__(self, message: str, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._message = message
+
+    def compose(self) -> ComposeResult:
+        with Vertical():
+            yield Label(self._message)
+            with Horizontal():
+                yield Button("OK", variant="primary", id="ok")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(None)
+
+    def key_escape(self) -> None:
+        self.dismiss(None)
+
+    def key_enter(self) -> None:
+        self.dismiss(None)
+
+
 class ProgressDialog(ModalScreen[None]):
     """Modal progress indicator dialog."""
 

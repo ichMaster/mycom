@@ -21,10 +21,14 @@ class FileEntry:
     permissions: int
 
 
-def list_directory(path: Path, show_hidden: bool = False) -> list[FileEntry]:
+def list_directory(
+    path: Path, show_hidden: bool = False, strict: bool = False
+) -> list[FileEntry]:
     """List directory contents, returning FileEntry objects.
 
-    Returns an empty list on permission errors rather than raising.
+    Returns an empty list on permission errors rather than raising, unless
+    ``strict`` is set — then a `PermissionError` (EACCES) is re-raised so
+    callers can distinguish "unreadable" from "empty".
     """
     try:
         entries = []
@@ -60,6 +64,8 @@ def list_directory(path: Path, show_hidden: bool = False) -> list[FileEntry]:
                 )
         return entries
     except PermissionError:
+        if strict:
+            raise
         return []
     except OSError:
         return []

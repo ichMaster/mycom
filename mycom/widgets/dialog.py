@@ -87,6 +87,19 @@ class DialogKit(ModalScreen[DialogResult], Generic[DialogResult]):
         self._message = message
         self._buttons = buttons
         self._cancel_result = cancel_result
+        self._check_no_duplicate_hotkeys()
+
+    def _check_no_duplicate_hotkeys(self) -> None:
+        seen: set[str] = set()
+        for button in self._buttons:
+            if not button.hotkey:
+                continue
+            letter = button.hotkey.lower()
+            if letter in seen:
+                raise ValueError(
+                    f"duplicate DialogButton hotkey {button.hotkey!r} in {type(self).__name__}"
+                )
+            seen.add(letter)
 
     def compose(self) -> ComposeResult:
         with Vertical():

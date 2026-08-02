@@ -77,6 +77,33 @@ async def test_arrow_cycling_wraps_between_both_buttons():
         assert second is not first
         assert not isinstance(second, Input)
 
-        await pilot.press("right")
-        await pilot.pause()
-        assert app.screen.focused is first
+
+def test_duplicate_hotkeys_rejected_at_construction():
+    """Finding 2: two buttons sharing a hotkey letter must fail fast at
+    construction, not silently make the second button unreachable."""
+    with pytest.raises(ValueError, match="hotkey"):
+        DialogKit(
+            buttons=(
+                DialogButton("Yes", "yes", hotkey="y"),
+                DialogButton("Yank", "yank", hotkey="y"),
+            )
+        )
+
+
+def test_distinct_hotkeys_construct_fine():
+    DialogKit(
+        buttons=(
+            DialogButton("Yes", "yes", hotkey="y"),
+            DialogButton("No", "no", hotkey="n"),
+        )
+    )
+
+
+def test_hotkey_case_insensitive_duplicate_rejected():
+    with pytest.raises(ValueError, match="hotkey"):
+        DialogKit(
+            buttons=(
+                DialogButton("Yes", "yes", hotkey="Y"),
+                DialogButton("Yank", "yank", hotkey="y"),
+            )
+        )

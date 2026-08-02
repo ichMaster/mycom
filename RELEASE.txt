@@ -1,6 +1,14 @@
 MyCom — Release History
 =======================
 
+Version 0.3.0 (2026-08-03)
+---------------------------
+- Selection model: Ins/Space toggle, mask select/deselect/invert, yellow highlight, live footer
+  count + size
+- Ctrl+H global hidden-files toggle
+- SQLite (WAL) state persistence for panel path/sort/view and hidden toggle, with vanished-path
+  fallback
+
 Version 0.2.0 (2026-08-02)
 ---------------------------
 - v0.2 Dialog kit, Far theme, key bar: single-source theme file (256-color safe)

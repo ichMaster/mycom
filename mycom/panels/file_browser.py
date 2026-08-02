@@ -133,7 +133,8 @@ class FileBrowserPanel(BasePanel):
         return self._file_list.view_mode
 
     def _show_error(self, message: str) -> None:
-        if self.app is not None:
+        # Widget.app raises NoActiveAppError (not None) when unmounted.
+        if self.is_mounted:
             self.app.push_screen(ErrorDialog(message))
 
     def navigate_to(self, path: Path) -> None:

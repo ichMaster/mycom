@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from mycom.app import MyComApp
+from mycom.panels.file_browser import FileBrowserPanel
 from mycom.widgets.dialog import ErrorDialog
 
 
@@ -31,3 +34,18 @@ async def test_vanished_directory_shows_error_and_stays_in_place(tmp_path):
         await pilot.press("enter")
         await pilot.pause()
         assert not isinstance(app.screen, ErrorDialog)
+
+
+@pytest.mark.skipif(os.getuid() == 0, reason="permission bits are bypassed when running as root")
+def test_unmounted_panel_does_not_crash_on_permission_error(tmp_path):
+    """Finding 2: `_show_error`'s `self.app is not None` guard never fired
+    (Widget.app raises NoActiveAppError, not None, when unmounted) — an
+    unmounted panel hitting an error must no-op, not crash."""
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0o000)
+    try:
+        panel = FileBrowserPanel()  # constructed outside any running App
+        panel.navigate_to(locked)  # must not raise NoActiveAppError
+    finally:
+        locked.chmod(0o755)

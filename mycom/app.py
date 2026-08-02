@@ -7,11 +7,15 @@ import logging
 import os
 from pathlib import Path
 
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, SuspendNotSupported
 from textual.containers import Horizontal
+from textual.screen import ModalScreen
+from textual.widgets import Static
 
 from mycom.config import GeneralConfig, load_config
 from mycom.console.cd import parse_cd
+from mycom.console.pty_runner import run_in_pty
+from mycom.console.ring_buffer import RingBuffer
 from mycom.fileops import (
     CancelToken,
     ConflictTypeMismatchError,
@@ -70,6 +74,36 @@ def _resolve_startup_path(path: Path) -> Path:
     if candidate == candidate.parent:  # walked all the way to "/"
         return Path.home()
     return candidate
+
+
+class _MessageScreen(ModalScreen[None]):
+    """A bespoke, minimal blocking screen for the "Press any key" / exit-
+    code restore step after a console command runs. Not a DialogKit dialog
+    — there's no title/message/button-row shape to reuse, just "show text,
+    wait for one key" — so a small purpose-built screen is the honest fit."""
+
+    DEFAULT_CSS = """
+    _MessageScreen {
+        align: center middle;
+    }
+    _MessageScreen > Static {
+        background: $dialog-bg;
+        color: $dialog-fg;
+        border: thick $dialog-fg;
+        padding: 1 2;
+    }
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__()
+        self._message = message
+
+    def compose(self) -> ComposeResult:
+        yield Static(self._message)
+
+    def on_key(self, event) -> None:
+        event.stop()
+        self.dismiss(None)
 
 
 class MyComApp(App):
@@ -149,6 +183,7 @@ class MyComApp(App):
         self._left_panel: FileBrowserPanel | None = None
         self._right_panel: FileBrowserPanel | None = None
         self._command_line: CommandLine | None = None
+        self._console_buffer = RingBuffer()
         self._active_side: str = "left"
         self._resize_index: int = _RESIZE_STEPS.index(50)
         self._show_hidden: bool = False  # re-derived from config/state in compose()
@@ -189,24 +224,66 @@ class MyComApp(App):
 
     def on_command_line_submitted(self, event: CommandLine.Submitted) -> None:
         target = parse_cd(event.text)
-        if target is None:
-            # Real execution arrives with MC-034; nothing to do with a
-            # non-cd command yet.
+        if target is not None:
+            target_path = Path(target)
+            if not target_path.is_absolute():
+                # Relative paths resolve against the active panel's shown
+                # directory — cd-sync's whole point is that this app never
+                # relies on the process's own (untouched) OS-level cwd.
+                target_path = self.active_panel.current_path / target_path
+            # navigate_to() shows its own error dialog and keeps the
+            # previous path on failure — it never raises.
+            self.active_panel.navigate_to(target_path)
+            self._command_line.set_cwd(self.active_panel.current_path)
+            # Submitting leaves the Input focused (nothing about a message
+            # post changes focus) — return it to the panel so the next
+            # keypress (Tab, arrows, F-keys, ...) reaches panel navigation
+            # immediately, instead of being silently swallowed by on_key's
+            # has-focus guard. The non-cd branch does this itself, in
+            # _finish_command, once the run actually completes.
+            self.active_panel.file_list.focus()
+        else:
+            self._run_command(event.text)
+
+    def _run_command(self, text: str) -> None:
+        """Hand the real terminal to `text` through a PTY (F0.11): the child
+        gets full interactivity (vim, htop, git rebase -i all work because
+        the terminal really is theirs) while output is teed into the
+        console ring buffer for Ctrl+O recall (MC-035).
+
+        `App.suspend()` is a synchronous, blocking call — while suspended,
+        Textual isn't processing any messages anyway (the terminal really
+        has been handed to the child), so blocking this handler for the
+        command's whole duration is correct, not a single-writer violation.
+        What must NOT happen is `await`-ing a screen's dismissal here
+        afterward: Textual runs one message handler to full completion
+        before dispatching the next, so a handler that awaits a Future only
+        a *later* keypress's message can resolve deadlocks the very message
+        loop that keypress needs to reach — the callback form (matching
+        every other multi-step dialog flow in this app) defers the
+        continuation to a new, separate message dispatch instead.
+        """
+        cwd = self.active_panel.current_path
+        self._console_buffer.clear()
+        try:
+            with self.suspend():
+                exit_code = run_in_pty(text, cwd, self._console_buffer.append)
+        except (OSError, SuspendNotSupported) as exc:
+            self.push_screen(
+                _MessageScreen(f"Command failed: {exc}\n\nPress any key"),
+                callback=self._finish_command,
+            )
             return
-        target_path = Path(target)
-        if not target_path.is_absolute():
-            # Relative paths resolve against the active panel's shown
-            # directory — cd-sync's whole point is that this app never
-            # relies on the process's own (untouched) OS-level cwd.
-            target_path = self.active_panel.current_path / target_path
-        # navigate_to() shows its own error dialog and keeps the previous
-        # path on failure — it never raises.
-        self.active_panel.navigate_to(target_path)
-        self._command_line.set_cwd(self.active_panel.current_path)
-        # Submitting leaves the Input focused (nothing about a message post
-        # changes focus) — return it to the panel so the next keypress
-        # (Tab, arrows, F-keys, ...) reaches panel navigation immediately,
-        # instead of being silently swallowed by on_key's has-focus guard.
+        if self._console_buffer.had_output or exit_code != 0:
+            lines = [] if exit_code == 0 else [f"Exit code: {exit_code}"]
+            lines.append("Press any key")
+            self.push_screen(_MessageScreen("\n".join(lines)), callback=self._finish_command)
+            return
+        self._finish_command(None)
+
+    def _finish_command(self, _result: None) -> None:
+        self.active_panel.refresh_listing()
+        self.inactive_panel.refresh_listing()
         self.active_panel.file_list.focus()
 
     def _build_panel(self, side: str, widget_id: str, general: GeneralConfig) -> FileBrowserPanel:

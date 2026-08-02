@@ -80,10 +80,15 @@ class FileBrowserPanel(BasePanel):
 
     def _update_footer(self) -> None:
         count = len(self._entries)
+        text = f"{count} item{'s' if count != 1 else ''}  0 selected"
         name = self._file_list.selected_name
-        text = f"{count} item{'s' if count != 1 else ''}"
         if name:
             text += f"  {name}"
+        if not self.is_active:
+            # Placeholder — no real shutil.disk_usage query yet (decision:
+            # feature-coverage.md Part 3). Not real data; don't wire a
+            # consumer to this expecting an actual free-space figure.
+            text += "  -- free"
         self._footer.update(text)
 
     def refresh_listing(self) -> None:
@@ -180,10 +185,12 @@ class FileBrowserPanel(BasePanel):
     def activate(self) -> None:
         super().activate()
         self._path_bar.set_active(True)
+        self._update_footer()
 
     def deactivate(self) -> None:
         super().deactivate()
         self._path_bar.set_active(False)
+        self._update_footer()
 
     def set_sort(self, field: str) -> None:
         """Set sort field. If same field, toggle direction."""

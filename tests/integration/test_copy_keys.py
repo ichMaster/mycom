@@ -396,3 +396,41 @@ async def test_f5_multi_file_copy_byte_identical_with_preserved_mtimes(tmp_path)
         assert dst_path.stat().st_mtime == pytest.approx(src_path.stat().st_mtime)
     copied_total = sum(p.stat().st_size for p in dst_dir.rglob("*") if p.is_file())
     assert copied_total == total_bytes
+
+
+@pytest.mark.asyncio
+async def test_f5_unexpected_os_error_shows_error_dialog_not_a_crash(tmp_path, monkeypatch):
+    """A mid-batch OSError (permission denied, disk full, a vanished file, …)
+    used to propagate out of the worker thread uncaught — Textual's
+    run_worker defaults to exit_on_error=True, which tears down the whole
+    app instead of showing a recoverable error (code review v0.4 #1)."""
+    import mycom.app as app_module
+
+    def raising_execute_plan(plan, cancel, conflict_policy, on_progress, **kwargs):
+        raise OSError("Disk full")
+
+    monkeypatch.setattr(app_module, "execute_plan", raising_execute_plan)
+
+    src_dir = tmp_path / "src"
+    dst_dir = tmp_path / "dst"
+    src_dir.mkdir()
+    dst_dir.mkdir()
+    (src_dir / "a.txt").write_bytes(b"x")
+
+    app = MyComApp()
+    async with app.run_test() as pilot:
+        app.active_panel.navigate_to(src_dir)
+        app.inactive_panel.navigate_to(dst_dir)
+        await pilot.pause()
+        app.active_panel.file_list.select_by_name("a.txt")
+        await pilot.pause()
+
+        await pilot.press("f5")
+        await pilot.pause()
+        await pilot.press("enter")
+        await _wait_until(pilot, lambda: len(app.screen_stack) == 2)
+
+        assert app.screen_stack[-1].__class__.__name__ == "ErrorDialog"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert len(app.screen_stack) == 1  # app is still alive and responsive

@@ -128,3 +128,34 @@ async def test_shift_f6_dotdot_is_noop(tmp_path):
         await pilot.press("shift+f6")
         await pilot.pause()
         assert len(app.screen_stack) == 1
+
+
+@pytest.mark.asyncio
+async def test_shift_f6_unexpected_os_error_shows_error_dialog_not_a_crash(tmp_path, monkeypatch):
+    """See test_copy_keys.py's equivalent — code review v0.4 #1."""
+    import mycom.app as app_module
+
+    def raising_execute_move_plan(plan, cancel, conflict_policy, on_progress, **kwargs):
+        raise OSError("Permission denied")
+
+    monkeypatch.setattr(app_module, "execute_move_plan", raising_execute_move_plan)
+
+    (tmp_path / "a.txt").write_bytes(b"x")
+
+    app = MyComApp()
+    async with app.run_test() as pilot:
+        app.active_panel.navigate_to(tmp_path)
+        await pilot.pause()
+        app.active_panel.file_list.select_by_name("a.txt")
+        await pilot.pause()
+
+        await pilot.press("shift+f6")
+        await pilot.pause()
+        app.screen.query_one("#input").value = "b.txt"
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert app.screen_stack[-1].__class__.__name__ == "ErrorDialog"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert len(app.screen_stack) == 1  # app is still alive and responsive

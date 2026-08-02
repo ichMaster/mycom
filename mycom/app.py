@@ -337,7 +337,11 @@ class MyComApp(App):
         return False
 
     def _run_copy(self, panel: FileBrowserPanel, sources: list[Path], target_dir: Path) -> None:
-        plan = build_plan(sources, target_dir)
+        try:
+            plan = build_plan(sources, target_dir)
+        except OSError as exc:
+            self._show_operation_error(None, f"Cannot copy: {exc}")
+            return
         cancel = CancelToken()
         conflict_policy = ConflictDialogPolicy(self, target_dir)
         progress_dialog = OperationProgressDialog(
@@ -352,7 +356,12 @@ class MyComApp(App):
             try:
                 execute_plan(plan, cancel, conflict_policy, on_progress)
             except ConflictTypeMismatchError as exc:
-                self.call_from_thread(self._finish_copy_error, progress_dialog, exc)
+                message = self._type_mismatch_message("copy", exc)
+                self.call_from_thread(self._show_operation_error, progress_dialog, message)
+                return
+            except OSError as exc:
+                message = f"Copy failed: {exc}"
+                self.call_from_thread(self._show_operation_error, progress_dialog, message)
                 return
             self.call_from_thread(self._finish_copy, progress_dialog, panel, sources)
 
@@ -366,14 +375,25 @@ class MyComApp(App):
         self.active_panel.refresh_listing()
         panel.deselect(src.name for src in sources)
 
-    def _finish_copy_error(
-        self, progress_dialog: OperationProgressDialog, exc: ConflictTypeMismatchError
+    def _show_operation_error(
+        self, progress_dialog: OperationProgressDialog | None, message: str
     ) -> None:
-        progress_dialog.dismiss(None)
-        self.push_screen(
-            ErrorDialog(f"Cannot copy: a file exists where a folder is expected at {exc.entry.dst}")
-        )
+        """Shared failure path for any file-operation worker: dismiss its
+        progress dialog (if any), show the error, and refresh both panels —
+        used for both ConflictTypeMismatchError and any plain OSError a
+        worker (permission denied, disk full, a vanished source, ...) can
+        raise. Without this, an uncaught exception in a run_worker(thread=
+        True) callable crashes the whole app (Textual's default
+        exit_on_error=True) instead of showing a recoverable error."""
+        if progress_dialog is not None:
+            progress_dialog.dismiss(None)
+        self.push_screen(ErrorDialog(message))
         self.inactive_panel.refresh_listing()
+        self.active_panel.refresh_listing()
+
+    @staticmethod
+    def _type_mismatch_message(verb: str, exc: ConflictTypeMismatchError) -> str:
+        return f"Cannot {verb}: a file exists where a folder is expected at {exc.entry.dst}"
 
     def action_move(self) -> None:
         panel = self.active_panel
@@ -408,7 +428,11 @@ class MyComApp(App):
         )
 
     def _run_move(self, panel: FileBrowserPanel, sources: list[Path], target_dir: Path) -> None:
-        plan = build_plan(sources, target_dir)
+        try:
+            plan = build_plan(sources, target_dir)
+        except OSError as exc:
+            self._show_operation_error(None, f"Cannot move: {exc}")
+            return
         cancel = CancelToken()
         conflict_policy = ConflictDialogPolicy(self, target_dir)
         # Same-filesystem entries move via instant rename() — no progress
@@ -433,7 +457,12 @@ class MyComApp(App):
             try:
                 execute_move_plan(plan, cancel, conflict_policy, on_progress)
             except ConflictTypeMismatchError as exc:
-                self.call_from_thread(self._finish_move_error, progress_dialog, exc)
+                message = self._type_mismatch_message("move", exc)
+                self.call_from_thread(self._show_operation_error, progress_dialog, message)
+                return
+            except OSError as exc:
+                message = f"Move failed: {exc}"
+                self.call_from_thread(self._show_operation_error, progress_dialog, message)
                 return
             self.call_from_thread(self._finish_move, progress_dialog, panel, sources)
 
@@ -450,16 +479,6 @@ class MyComApp(App):
         self.inactive_panel.refresh_listing()
         self.active_panel.refresh_listing()
         panel.deselect(src.name for src in sources)
-
-    def _finish_move_error(
-        self, progress_dialog: OperationProgressDialog | None, exc: ConflictTypeMismatchError
-    ) -> None:
-        if progress_dialog is not None:
-            progress_dialog.dismiss(None)
-        self.push_screen(
-            ErrorDialog(f"Cannot move: a file exists where a folder is expected at {exc.entry.dst}")
-        )
-        self.inactive_panel.refresh_listing()
 
     def action_mkdir(self) -> None:
         self._prompt_mkdir(self.active_panel, "")
@@ -536,7 +555,11 @@ class MyComApp(App):
         next_name: str | None,
     ) -> None:
         if not remaining_dirs:
-            plan = build_delete_plan(sources)
+            try:
+                plan = build_delete_plan(sources)
+            except OSError as exc:
+                self._show_operation_error(None, f"Cannot delete: {exc}")
+                return
             readonly = [
                 e for e in plan.entries if not e.is_dir and not os.access(e.src, os.W_OK)
             ]
@@ -602,7 +625,12 @@ class MyComApp(App):
                 self.call_from_thread(progress_dialog.update_progress, progress)
 
         def worker() -> None:
-            execute_delete_plan(plan, cancel, on_progress)
+            try:
+                execute_delete_plan(plan, cancel, on_progress)
+            except OSError as exc:
+                message = f"Delete failed: {exc}"
+                self.call_from_thread(self._show_operation_error, progress_dialog, message)
+                return
             self.call_from_thread(self._finish_delete, progress_dialog, panel, next_name)
 
         self.run_worker(worker, thread=True)
@@ -638,9 +666,13 @@ class MyComApp(App):
 
     def _run_rename(self, panel: FileBrowserPanel, src: Path, new_name: str) -> None:
         target = panel.current_path / new_name
-        is_dir = src.is_dir() and not src.is_symlink()
-        is_symlink = src.is_symlink()
-        size = 0 if is_dir or is_symlink else src.stat().st_size
+        try:
+            is_dir = src.is_dir() and not src.is_symlink()
+            is_symlink = src.is_symlink()
+            size = 0 if is_dir or is_symlink else src.stat().st_size
+        except OSError as exc:
+            self._show_operation_error(None, f"Cannot rename: {exc}")
+            return
         entry = PlanEntry(src=src, dst=target, is_dir=is_dir, is_symlink=is_symlink, size=size)
         plan = OpPlan((entry,), size, 0 if is_dir else 1)
         cancel = CancelToken()
@@ -653,7 +685,12 @@ class MyComApp(App):
             try:
                 result = execute_move_plan(plan, cancel, conflict_policy, lambda p: None)
             except ConflictTypeMismatchError as exc:
-                self.call_from_thread(self._rename_error, exc)
+                message = self._type_mismatch_message("rename", exc)
+                self.call_from_thread(self._show_operation_error, None, message)
+                return
+            except OSError as exc:
+                message = f"Rename failed: {exc}"
+                self.call_from_thread(self._show_operation_error, None, message)
                 return
             self.call_from_thread(self._finish_rename, panel, result)
 
@@ -663,14 +700,6 @@ class MyComApp(App):
         panel.refresh_listing()
         if result.completed:
             panel.file_list.select_by_name(result.completed[-1].dst.name)
-
-    def _rename_error(self, exc: ConflictTypeMismatchError) -> None:
-        self.push_screen(
-            ErrorDialog(
-                f"Cannot rename: a file exists where a folder is expected at {exc.entry.dst}"
-            )
-        )
-        self.active_panel.refresh_listing()
 
     def action_resize_grow(self) -> None:
         self._resize_index = min(self._resize_index + 1, len(_RESIZE_STEPS) - 1)

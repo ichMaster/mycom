@@ -210,3 +210,39 @@ async def test_f6_cross_device_move_cancellation_leaves_source_intact(tmp_path, 
         else:
             assert dst_file.read_bytes() == data
     assert len(list(dst_dir.iterdir())) < 20  # cancelled before finishing all of them
+
+
+@pytest.mark.asyncio
+async def test_f6_unexpected_os_error_shows_error_dialog_not_a_crash(tmp_path, monkeypatch):
+    """See test_copy_keys.py's equivalent — code review v0.4 #1."""
+    import mycom.app as app_module
+
+    def raising_execute_move_plan(plan, cancel, conflict_policy, on_progress, **kwargs):
+        raise OSError("Permission denied")
+
+    monkeypatch.setattr(app_module, "execute_move_plan", raising_execute_move_plan)
+    monkeypatch.setattr("mycom.app.same_filesystem", lambda a, b: False)  # force a progress dialog
+
+    src_dir = tmp_path / "src"
+    dst_dir = tmp_path / "dst"
+    src_dir.mkdir()
+    dst_dir.mkdir()
+    (src_dir / "a.txt").write_bytes(b"x")
+
+    app = MyComApp()
+    async with app.run_test() as pilot:
+        app.active_panel.navigate_to(src_dir)
+        app.inactive_panel.navigate_to(dst_dir)
+        await pilot.pause()
+        app.active_panel.file_list.select_by_name("a.txt")
+        await pilot.pause()
+
+        await pilot.press("f6")
+        await pilot.pause()
+        await pilot.press("enter")
+        await _wait_until(pilot, lambda: len(app.screen_stack) == 2)
+
+        assert app.screen_stack[-1].__class__.__name__ == "ErrorDialog"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert len(app.screen_stack) == 1  # app is still alive and responsive

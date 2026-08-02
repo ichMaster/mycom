@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from textual.app import ComposeResult
 
-from mycom.operations.sort import sort_entries
+from mycom.operations.sort import SORT_FIELDS, sort_entries
 from mycom.panels.base import BasePanel, PanelMode
 from mycom.utils.fs import FileEntry, format_date, format_permissions, format_size, list_directory
 from mycom.widgets.file_list import FileList
 from mycom.widgets.path_bar import PathBar
+
+logger = logging.getLogger(__name__)
 
 
 class FileBrowserPanel(BasePanel):
@@ -28,15 +31,27 @@ class FileBrowserPanel(BasePanel):
     }
     """
 
-    def __init__(self, start_path: Path | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        start_path: Path | None = None,
+        show_hidden: bool = False,
+        sort_field: str = "name",
+        sort_ascending: bool = True,
+        **kwargs,
+    ) -> None:
         super().__init__(mode=PanelMode.FILE_BROWSER, **kwargs)
         self._current_path = start_path or Path.cwd()
         self._path_bar = PathBar(path=self._current_path)
         self._file_list = FileList()
-        self._show_hidden = False
+        self._show_hidden = show_hidden
         self._entries: list[FileEntry] = []
-        self._sort_field = "name"
-        self._sort_ascending = True
+        if sort_field not in SORT_FIELDS:
+            logger.warning(
+                "Unrecognized default_sort %r, falling back to 'name'", sort_field
+            )
+            sort_field = "name"
+        self._sort_field = sort_field
+        self._sort_ascending = sort_ascending
         self._filter_text = ""
 
     def compose(self) -> ComposeResult:

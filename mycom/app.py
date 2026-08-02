@@ -9,6 +9,7 @@ from textual.containers import Horizontal
 
 from mycom.config import load_config
 from mycom.keymap import Keymap
+from mycom.logging_setup import configure_logging
 from mycom.panels.file_browser import FileBrowserPanel
 from mycom.widgets.header import AppHeader
 from mycom.widgets.status_bar import StatusBar
@@ -54,6 +55,7 @@ class MyComApp(App):
 
     def __init__(self) -> None:
         super().__init__()
+        configure_logging()
         self._config = load_config()
         self._keymap = Keymap(self._config.keybindings)
         for key, action, label in self._keymap.bindings_for_context("panel"):
@@ -65,10 +67,20 @@ class MyComApp(App):
         self._active_side: str = "left"
 
     def compose(self) -> ComposeResult:
+        general = self._config.general
+        panel_kwargs = {
+            "show_hidden": general.show_hidden,
+            "sort_field": general.default_sort,
+            "sort_ascending": general.default_sort_direction == "asc",
+        }
         yield AppHeader()
         with Horizontal(id="panel-container"):
-            self._left_panel = FileBrowserPanel(start_path=Path.cwd(), id="left-panel")
-            self._right_panel = FileBrowserPanel(start_path=Path.cwd(), id="right-panel")
+            self._left_panel = FileBrowserPanel(
+                start_path=Path.cwd(), id="left-panel", **panel_kwargs
+            )
+            self._right_panel = FileBrowserPanel(
+                start_path=Path.cwd(), id="right-panel", **panel_kwargs
+            )
             yield self._left_panel
             yield self._right_panel
         yield StatusBar()

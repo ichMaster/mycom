@@ -50,6 +50,8 @@ DEFAULT_COMMANDS: tuple[Command, ...] = (
     Command("sort_mtime", ("ctrl+f5",), "panel", "SortTime"),
     Command("sort_size", ("ctrl+f6",), "panel", "SortSize"),
     Command("select_toggle", ("insert", "space"), "panel", "Select"),
+    Command("select_mask", ("plus", "alt+equals_sign"), "panel", "Select"),
+    Command("deselect_mask", ("minus", "alt+minus"), "panel", "Deselect"),
 )
 
 

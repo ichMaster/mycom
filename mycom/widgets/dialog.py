@@ -154,7 +154,26 @@ class DialogKit(ModalScreen[DialogResult], Generic[DialogResult]):
         buttons[index].focus()
 
     def on_key(self, event) -> None:
+        # Stop every key this dialog handles from bubbling past it — without
+        # this, a modal's Enter/Esc/hotkeys also reach MyComApp.on_key and
+        # trigger the panel underneath (e.g. Enter dismissing a dialog would
+        # also "open" whatever the panel's cursor was on, clearing state the
+        # dialog's own callback had just set).
         input_focused = isinstance(self.focused, Input)
+
+        if event.key == "enter":
+            event.stop()
+            default = next((b for b in self._buttons if b.default), None)
+            if default is None and self._buttons:
+                default = self._buttons[-1]
+            if default is not None:
+                self._activate(default.id)
+            return
+
+        if event.key == "escape":
+            event.stop()
+            self.dismiss(self._cancel_result)
+            return
 
         if not input_focused:
             if event.key in ("left", "up"):
@@ -174,16 +193,6 @@ class DialogKit(ModalScreen[DialogResult], Generic[DialogResult]):
                 event.stop()
                 self._activate(button.id)
                 return
-
-    def key_enter(self) -> None:
-        default = next((b for b in self._buttons if b.default), None)
-        if default is None and self._buttons:
-            default = self._buttons[-1]
-        if default is not None:
-            self._activate(default.id)
-
-    def key_escape(self) -> None:
-        self.dismiss(self._cancel_result)
 
 
 class ConfirmDialog(DialogKit[bool]):

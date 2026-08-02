@@ -13,6 +13,7 @@ from mycom.logging_setup import configure_logging
 from mycom.panels.file_browser import FileBrowserPanel
 from mycom.panels.views import ViewMode
 from mycom.theme import FAR_CLASSIC_THEME
+from mycom.widgets.dialog import InputDialog
 from mycom.widgets.header import AppHeader
 from mycom.widgets.status_bar import StatusBar
 
@@ -31,6 +32,11 @@ class MyComApp(App):
     CSS_PATH = "app.tcss"
 
     def on_key(self, event) -> None:
+        if len(self.screen_stack) > 1:
+            # A modal (dialog) is on top — panel-key interception must not
+            # leak through to the panel underneath (e.g. Enter dismissing a
+            # dialog must not also navigate/go-up the panel behind it).
+            return
         actions = self._keymap.actions_for_key(event.key, context="panel")
         if "switch_panel" in actions:
             event.prevent_default()
@@ -153,6 +159,25 @@ class MyComApp(App):
 
     def action_select_toggle(self) -> None:
         self.active_panel.toggle_selection_at_cursor()
+
+    def action_select_mask(self) -> None:
+        self._open_mask_dialog(select=True)
+
+    def action_deselect_mask(self) -> None:
+        self._open_mask_dialog(select=False)
+
+    def _open_mask_dialog(self, *, select: bool) -> None:
+        panel = self.active_panel
+        verb = "Select" if select else "Deselect"
+
+        def on_dismiss(pattern: str | None) -> None:
+            if pattern:
+                panel.select_by_mask(pattern, select)
+
+        self.push_screen(
+            InputDialog(f"{verb} files matching (e.g. *.py;*.md):", default="*"),
+            callback=on_dismiss,
+        )
 
     def action_resize_grow(self) -> None:
         self._resize_index = min(self._resize_index + 1, len(_RESIZE_STEPS) - 1)

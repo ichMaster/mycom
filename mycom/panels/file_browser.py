@@ -13,6 +13,7 @@ from mycom.operations.sort import SORT_FIELDS, sort_entries
 from mycom.panels.base import BasePanel, PanelMode
 from mycom.panels.views import ViewMode
 from mycom.utils.fs import FileEntry, format_date, format_permissions, format_size, list_directory
+from mycom.utils.masks import match_any
 from mycom.widgets.dialog import ErrorDialog
 from mycom.widgets.file_list import FileList
 from mycom.widgets.path_bar import PathBar
@@ -223,6 +224,19 @@ class FileBrowserPanel(BasePanel):
         self._render_entries()
         if next_name:
             self._file_list.select_by_name(next_name)
+
+    def select_by_mask(self, pattern: str, select: bool) -> None:
+        """Add (select=True) or remove (select=False) every entry matching
+        `pattern` (a match_any glob-list) from the selection. `..` is never
+        in `self._entries`, so it can never match."""
+        for entry in self._entries:
+            if not match_any(entry.name, pattern):
+                continue
+            if select:
+                self._selected.add(entry.name)
+            else:
+                self._selected.discard(entry.name)
+        self._render_entries()
 
     @property
     def file_list(self) -> FileList:

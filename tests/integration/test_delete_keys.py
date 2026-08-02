@@ -7,6 +7,7 @@ import stat
 import pytest
 
 from mycom.app import MyComApp
+from mycom.config import AppConfig, GeneralConfig
 from tests.integration.test_copy_keys import _wait_until
 
 
@@ -251,3 +252,48 @@ async def test_f8_unexpected_os_error_shows_error_dialog_not_a_crash(tmp_path, m
         await pilot.press("enter")
         await pilot.pause()
         assert len(app.screen_stack) == 1  # app is still alive and responsive
+
+
+@pytest.mark.asyncio
+async def test_f8_confirm_delete_false_skips_the_routine_confirmation(tmp_path):
+    """confirm_delete=False (config.toml [general]) skips the routine
+    "Delete X?" prompt — but the non-empty-directory and read-only-file
+    safety warnings always still show regardless."""
+    (tmp_path / "a.txt").write_bytes(b"x")
+
+    app = MyComApp()
+    app._config = AppConfig(general=GeneralConfig(confirm_delete=False))
+    async with app.run_test() as pilot:
+        app.active_panel.navigate_to(tmp_path)
+        await pilot.pause()
+        app.active_panel.file_list.select_by_name("a.txt")
+        await pilot.pause()
+
+        await pilot.press("f8")
+        await _wait_until(pilot, lambda: len(app.screen_stack) == 1)
+
+    assert not (tmp_path / "a.txt").exists()
+
+
+@pytest.mark.asyncio
+async def test_f8_confirm_delete_false_still_warns_on_non_empty_directory(tmp_path):
+    d = tmp_path / "full_dir"
+    d.mkdir()
+    (d / "inside.txt").write_bytes(b"data")
+
+    app = MyComApp()
+    app._config = AppConfig(general=GeneralConfig(confirm_delete=False))
+    async with app.run_test() as pilot:
+        app.active_panel.navigate_to(tmp_path)
+        await pilot.pause()
+        app.active_panel.file_list.select_by_name("full_dir")
+        await pilot.pause()
+
+        await pilot.press("f8")
+        await pilot.pause()
+
+        assert len(app.screen_stack) == 2  # the non-empty-dir safety warning, unskippable
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert not d.exists()

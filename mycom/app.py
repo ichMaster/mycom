@@ -541,6 +541,13 @@ class MyComApp(App):
             src for src in sources if src.is_dir() and not src.is_symlink() and any(src.iterdir())
         ]
 
+        if not self._config.general.confirm_delete:
+            # Only the routine confirmation is skippable — the stronger
+            # non-empty-directory and read-only-file prompts are safety
+            # warnings, not routine confirmations, and always still show.
+            self._confirm_next_nonempty_dir(panel, sources, non_empty_dirs, next_name)
+            return
+
         def on_confirm(confirmed: bool) -> None:
             if confirmed:
                 self._confirm_next_nonempty_dir(panel, sources, non_empty_dirs, next_name)

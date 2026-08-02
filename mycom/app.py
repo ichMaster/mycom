@@ -109,6 +109,7 @@ class MyComApp(App):
         self._active_side = "right" if self._active_side == "left" else "left"
         self.active_panel.activate()
         self.active_panel.file_list.focus()
+        self._apply_panel_widths()
 
     def action_panel_swap(self) -> None:
         """Swap both panels' paths and cursor positions (Ctrl+U).

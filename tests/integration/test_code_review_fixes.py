@@ -49,3 +49,20 @@ def test_unmounted_panel_does_not_crash_on_permission_error(tmp_path):
         panel.navigate_to(locked)  # must not raise NoActiveAppError
     finally:
         locked.chmod(0o755)
+
+
+@pytest.mark.asyncio
+async def test_resize_follows_active_panel_across_tab_switch():
+    """Finding 3: after a resize, Tab must move the "wide" width to the
+    newly active panel instead of leaving it on the old one."""
+    app = MyComApp()
+    async with app.run_test() as pilot:
+        await pilot.press("ctrl+right")  # active (left) -> 70%
+        await pilot.pause()
+        assert app.active_panel.styles.width.value == 70
+
+        await pilot.press("tab")  # active is now right
+        await pilot.pause()
+
+        assert app.active_panel.styles.width.value == 70
+        assert app.inactive_panel.styles.width.value == 1  # 1fr

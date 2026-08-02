@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import os
 from pathlib import Path
 
 from textual.app import App, ComposeResult
@@ -13,8 +14,12 @@ from mycom.config import GeneralConfig, load_config
 from mycom.fileops import (
     CancelToken,
     ConflictTypeMismatchError,
+    OpPlan,
     OpProgress,
+    PlanEntry,
+    build_delete_plan,
     build_plan,
+    execute_delete_plan,
     execute_move_plan,
     execute_plan,
     path_contains,
@@ -27,7 +32,7 @@ from mycom.panels.views import ViewMode
 from mycom.state import PanelState, StateDB
 from mycom.theme import FAR_CLASSIC_THEME
 from mycom.widgets.conflict_dialog import ConflictDialogPolicy
-from mycom.widgets.dialog import ErrorDialog, InputDialog, OperationProgressDialog
+from mycom.widgets.dialog import ConfirmDialog, ErrorDialog, InputDialog, OperationProgressDialog
 from mycom.widgets.header import AppHeader
 from mycom.widgets.status_bar import StatusBar
 
@@ -39,6 +44,10 @@ logger = logging.getLogger(__name__)
 _INTERCEPTED_ACTIONS = frozenset({"switch_panel", "open", "go_up"})
 
 _RESIZE_STEPS = (30, 50, 70)
+
+# Below this many files, a delete's own progress dialog would just flicker —
+# only a genuinely large tree gets one.
+_DELETE_PROGRESS_THRESHOLD_FILES = 20
 
 _SAVE_DEBOUNCE_SECONDS = 0.5
 
@@ -479,6 +488,135 @@ class MyComApp(App):
             InputDialog("Create directory:", default=default),
             callback=on_dismiss,
         )
+
+    def action_delete(self) -> None:
+        panel = self.active_panel
+        sources = panel.get_selected_files()
+        if not sources:
+            return
+        label = sources[0].name if len(sources) == 1 else f"{len(sources)} files"
+        prompt = f'Delete "{label}"?' if len(sources) == 1 else f"Delete {len(sources)} files?"
+        # Peek at "next survivor" without committing to the cursor move yet —
+        # a cancelled delete must leave the cursor exactly where it was.
+        # Skip past any row that's itself being deleted (e.g. a multi-select
+        # of adjacent rows), so the cursor doesn't land on a name that's
+        # about to vanish too.
+        source_names = {src.name for src in sources}
+        original_name = panel.file_list.selected_name
+        next_name = None
+        seen: set[str] = set()
+        while True:
+            panel.file_list.action_cursor_down()
+            candidate = panel.file_list.selected_name
+            if candidate is None or candidate in seen:
+                break
+            seen.add(candidate)
+            if candidate not in source_names:
+                next_name = candidate
+                break
+        if original_name:
+            panel.file_list.select_by_name(original_name)
+
+        non_empty_dirs = [
+            src for src in sources if src.is_dir() and not src.is_symlink() and any(src.iterdir())
+        ]
+
+        def on_confirm(confirmed: bool) -> None:
+            if confirmed:
+                self._confirm_next_nonempty_dir(panel, sources, non_empty_dirs, next_name)
+
+        self.push_screen(ConfirmDialog(prompt), callback=on_confirm)
+
+    def _confirm_next_nonempty_dir(
+        self,
+        panel: FileBrowserPanel,
+        sources: list[Path],
+        remaining_dirs: list[Path],
+        next_name: str | None,
+    ) -> None:
+        if not remaining_dirs:
+            plan = build_delete_plan(sources)
+            readonly = [
+                e for e in plan.entries if not e.is_dir and not os.access(e.src, os.W_OK)
+            ]
+            self._confirm_next_readonly(panel, plan, readonly, set(), next_name)
+            return
+        dir_path = remaining_dirs[0]
+
+        def on_confirm(confirmed: bool) -> None:
+            if not confirmed:
+                return
+            self._confirm_next_nonempty_dir(panel, sources, remaining_dirs[1:], next_name)
+
+        self.push_screen(
+            ConfirmDialog(f'Directory "{dir_path.name}" is not empty. Delete anyway?'),
+            callback=on_confirm,
+        )
+
+    def _confirm_next_readonly(
+        self,
+        panel: FileBrowserPanel,
+        plan: OpPlan,
+        remaining_readonly: list[PlanEntry],
+        excluded: set[Path],
+        next_name: str | None,
+    ) -> None:
+        if not remaining_readonly:
+            entries = tuple(e for e in plan.entries if e.src not in excluded)
+            final_plan = OpPlan(
+                entries,
+                sum(e.size for e in entries if not e.is_dir),
+                sum(1 for e in entries if not e.is_dir),
+            )
+            self._run_delete(panel, final_plan, next_name)
+            return
+        entry = remaining_readonly[0]
+
+        def on_confirm(confirmed: bool) -> None:
+            next_excluded = excluded if confirmed else excluded | {entry.src}
+            self._confirm_next_readonly(
+                panel, plan, remaining_readonly[1:], next_excluded, next_name
+            )
+
+        self.push_screen(
+            ConfirmDialog(f'Delete read-only file "{entry.src.name}"?'),
+            callback=on_confirm,
+        )
+
+    def _run_delete(self, panel: FileBrowserPanel, plan: OpPlan, next_name: str | None) -> None:
+        if not plan.entries:
+            return
+        cancel = CancelToken()
+        show_progress = plan.total_files >= _DELETE_PROGRESS_THRESHOLD_FILES
+        progress_dialog = (
+            OperationProgressDialog(cancel, title="Deleting…", total_bytes=plan.total_bytes)
+            if show_progress
+            else None
+        )
+        if progress_dialog is not None:
+            self.push_screen(progress_dialog)
+
+        def on_progress(progress: OpProgress) -> None:
+            if progress_dialog is not None:
+                self.call_from_thread(progress_dialog.update_progress, progress)
+
+        def worker() -> None:
+            execute_delete_plan(plan, cancel, on_progress)
+            self.call_from_thread(self._finish_delete, progress_dialog, panel, next_name)
+
+        self.run_worker(worker, thread=True)
+
+    def _finish_delete(
+        self,
+        progress_dialog: OperationProgressDialog | None,
+        panel: FileBrowserPanel,
+        next_name: str | None,
+    ) -> None:
+        if progress_dialog is not None:
+            progress_dialog.dismiss(None)
+        panel.refresh_listing()
+        if next_name:
+            panel.file_list.select_by_name(next_name)
 
     def action_resize_grow(self) -> None:
         self._resize_index = min(self._resize_index + 1, len(_RESIZE_STEPS) - 1)

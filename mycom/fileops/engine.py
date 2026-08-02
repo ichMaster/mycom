@@ -296,6 +296,11 @@ def execute_delete_plan(
     """Delete every entry in `plan`, deepest-first (files and leaf symlinks
     before the directories that contain them) so `rmdir` always finds an
     empty directory. No conflict policy — delete has nothing to conflict with.
+
+    A directory that turns out non-empty (a caller excluded one of its
+    children — e.g. a declined read-only-file prompt) is left in place
+    rather than raising: no data loss, the excluded child is exactly why
+    it's non-empty.
     """
     completed: list[PlanEntry] = []
     bytes_done = 0
@@ -305,7 +310,13 @@ def execute_delete_plan(
     for entry in reversed(plan.entries):
         if cancel.is_cancelled():
             return ExecutionResult(tuple(completed), (), cancelled=True)
-        delete_entry(entry)
+        if entry.is_dir:
+            try:
+                delete_entry(entry)
+            except OSError:
+                continue
+        else:
+            delete_entry(entry)
         completed.append(entry)
         if not entry.is_dir:
             files_done += 1

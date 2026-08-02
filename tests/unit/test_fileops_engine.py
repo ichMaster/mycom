@@ -18,7 +18,7 @@ from mycom.fileops.engine import (
     move_entry,
     same_filesystem,
 )
-from mycom.fileops.plan import PlanEntry, build_delete_plan, build_plan
+from mycom.fileops.plan import OpPlan, PlanEntry, build_delete_plan, build_plan
 from mycom.fileops.policy import ConflictChoice
 
 
@@ -355,6 +355,32 @@ def test_execute_delete_plan_removes_files_then_dirs(tmp_path: Path) -> None:
     assert result.cancelled is False
     assert not root.exists()
     assert result.completed[-1].src == root  # the root dir is removed last
+
+
+def test_execute_delete_plan_leaves_nonempty_dir_when_a_child_was_excluded(tmp_path: Path) -> None:
+    """A caller can exclude specific entries from a plan (e.g. a declined
+    read-only-file prompt) before executing it — the containing directory's
+    rmdir then legitimately fails (not empty). That must not crash the rest
+    of the delete or raise: no data loss, the excluded child is exactly why
+    it's non-empty."""
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "excluded.txt").write_bytes(b"keep me")
+    (root / "other.txt").write_bytes(b"delete me")
+    other_root = tmp_path / "other_root"
+    other_root.mkdir()
+
+    full_plan = build_delete_plan([root, other_root])
+    entries = tuple(e for e in full_plan.entries if e.src.name != "excluded.txt")
+    plan = OpPlan(entries, full_plan.total_bytes - 7, full_plan.total_files - 1)
+
+    result = execute_delete_plan(plan, CancelToken(), lambda p: None)
+
+    assert result.cancelled is False
+    assert root.exists()  # left behind — still contains excluded.txt
+    assert (root / "excluded.txt").read_bytes() == b"keep me"
+    assert not (root / "other.txt").exists()
+    assert not other_root.exists()  # unrelated dir still removed normally
 
 
 def test_execute_delete_plan_cancellation_leaves_remainder_intact(tmp_path: Path) -> None:

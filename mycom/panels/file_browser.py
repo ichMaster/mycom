@@ -69,6 +69,7 @@ class FileBrowserPanel(BasePanel):
         yield self._footer
 
     def on_mount(self) -> None:
+        self._file_list.set_sort_indicator(self._sort_field, self._sort_ascending)
         self.refresh_listing()
 
     def on_data_table_cell_highlighted(self, event) -> None:
@@ -188,6 +189,7 @@ class FileBrowserPanel(BasePanel):
         else:
             self._sort_field = field
             self._sort_ascending = True
+        self._file_list.set_sort_indicator(self._sort_field, self._sort_ascending)
         self.refresh_listing()
 
     @property

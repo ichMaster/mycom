@@ -136,6 +136,18 @@ class MyComApp(App):
     def action_view_wide(self) -> None:
         self.active_panel.set_view_mode(ViewMode.WIDE)
 
+    def action_sort_name(self) -> None:
+        self.active_panel.set_sort("name")
+
+    def action_sort_ext(self) -> None:
+        self.active_panel.set_sort("extension")
+
+    def action_sort_mtime(self) -> None:
+        self.active_panel.set_sort("date")
+
+    def action_sort_size(self) -> None:
+        self.active_panel.set_sort("size")
+
     def action_resize_grow(self) -> None:
         self._resize_index = min(self._resize_index + 1, len(_RESIZE_STEPS) - 1)
         self._apply_panel_widths()

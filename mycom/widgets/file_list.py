@@ -13,6 +13,15 @@ _MIN_BRIEF_COLUMN_WIDTH = 22
 _NAME_TRUNCATE_WIDTH = 40
 _BRIEF_TRUNCATE_WIDTH = _MIN_BRIEF_COLUMN_WIDTH - 2
 
+# Which displayed column carries the sort glyph for a given sort field.
+# "extension" has no dedicated column — its glyph rides on Name.
+_SORT_COLUMN_FOR_FIELD = {
+    "name": "name",
+    "extension": "name",
+    "date": "modified",
+    "size": "size",
+}
+
 
 def truncate_name(text: str, max_width: int) -> str:
     """Truncate to at most max_width codepoints, appending an ellipsis."""
@@ -63,6 +72,8 @@ class FileList(DataTable):
         self._view_mode: ViewMode = ViewMode.FULL
         self._brief_columns: int = 1
         self._brief_names: list[str] = []  # icon+name (or "..") in grid reading order
+        self._sort_field: str | None = None
+        self._sort_ascending: bool = True
         self.cursor_type = "row"
         self.zebra_stripes = False
 
@@ -81,6 +92,15 @@ class FileList(DataTable):
         self._rebuild_columns()
         self.load_directory(self._entries, self._current_path)
 
+    def set_sort_indicator(self, field: str, ascending: bool) -> None:
+        """Record the active sort field/direction and refresh header glyphs.
+
+        Rebuilds (and thus clears) columns — callers reload entries right after.
+        """
+        self._sort_field = field
+        self._sort_ascending = ascending
+        self._rebuild_columns()
+
     def _rebuild_columns(self) -> None:
         self.clear(columns=True)
         if self._view_mode is ViewMode.BRIEF:
@@ -92,8 +112,13 @@ class FileList(DataTable):
             self._brief_columns = 1
             spec = VIEW_SPECS[self._view_mode]
             self.add_column("", key="icon")
+            glyph_column = _SORT_COLUMN_FOR_FIELD.get(self._sort_field or "")
+            glyph = " ▲" if self._sort_ascending else " ▼"
             for field in spec.fields:
-                self.add_column(FIELD_HEADERS[field], key=field)
+                label = FIELD_HEADERS[field]
+                if field == glyph_column:
+                    label += glyph
+                self.add_column(label, key=field)
 
     def load_directory(self, entries: list[dict], path: Path) -> None:
         """Load file entries into the table.

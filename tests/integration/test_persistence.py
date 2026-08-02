@@ -136,3 +136,22 @@ async def test_state_survives_without_a_clean_shutdown(tmp_path):
     app2 = MyComApp()
     async with app2.run_test():
         assert app2.active_panel.current_path == content_dir
+
+
+@pytest.mark.asyncio
+async def test_quit_does_not_crash_when_the_final_save_fails(tmp_path, monkeypatch):
+    """Code review #3: a write failure in the final flush (locked DB, full
+    disk, read-only FS, ...) must not crash action_quit — quitting must
+    always succeed even if the last save doesn't."""
+    app = MyComApp()
+    async with app.run_test() as pilot:
+        app.active_panel.navigate_to(tmp_path)
+        await pilot.pause()
+
+        def boom(*args, **kwargs):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(app._state_db, "save_panel_state", boom)
+
+        await app.action_quit()  # must not raise
+        assert app._exit

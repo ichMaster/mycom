@@ -296,19 +296,25 @@ class MyComApp(App):
         if self._state_db is None:
             return
         self._save_timer = None
-        for side, panel in (("left", self._left_panel), ("right", self._right_panel)):
-            if panel is None:
-                continue
-            self._state_db.save_panel_state(
-                side,
-                str(panel.current_path),
-                panel.sort_field,
-                panel.sort_ascending,
-                panel.view_mode.value,
-            )
-        self._state_db.save_app_state("show_hidden", "true" if self._show_hidden else "false")
-        self._state_db.save_app_state("active_side", self._active_side)
-        self._state_db.save_app_state("resize_index", str(self._resize_index))
+        try:
+            for side, panel in (("left", self._left_panel), ("right", self._right_panel)):
+                if panel is None:
+                    continue
+                self._state_db.save_panel_state(
+                    side,
+                    str(panel.current_path),
+                    panel.sort_field,
+                    panel.sort_ascending,
+                    panel.view_mode.value,
+                )
+            self._state_db.save_app_state("show_hidden", "true" if self._show_hidden else "false")
+            self._state_db.save_app_state("active_side", self._active_side)
+            self._state_db.save_app_state("resize_index", str(self._resize_index))
+        except Exception:
+            # A save failure (locked DB, full disk, read-only FS, ...) must
+            # never block quitting or crash into the panic screen — same
+            # graceful-degradation posture as __init__'s StateDB() try/except.
+            logger.warning("Failed to save state — continuing without it", exc_info=True)
 
     async def action_quit(self) -> None:
         if self._save_timer is not None:

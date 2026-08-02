@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 
 from textual.app import App, ComposeResult, SuspendNotSupported
-from textual.containers import Horizontal
+from textual.containers import Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
@@ -100,6 +100,39 @@ class _MessageScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         yield Static(self._message)
+
+    def on_key(self, event) -> None:
+        event.stop()
+        self.dismiss(None)
+
+
+class _ConsoleOutputScreen(ModalScreen[None]):
+    """Ctrl+O: the last command's output (F0.11), scrollable — unlike
+    `_MessageScreen`'s always-short text, this can be up to 100k lines.
+    Any key (or Esc) dismisses, returning to the panels unchanged; nothing
+    re-runs."""
+
+    DEFAULT_CSS = """
+    _ConsoleOutputScreen {
+        background: $panel-bg;
+    }
+    _ConsoleOutputScreen > VerticalScroll {
+        width: 1fr;
+        height: 1fr;
+    }
+    _ConsoleOutputScreen Static {
+        width: auto;
+        color: $panel-fg;
+    }
+    """
+
+    def __init__(self, text: str) -> None:
+        super().__init__()
+        self._text = text or "No output yet"
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll():
+            yield Static(self._text)
 
     def on_key(self, event) -> None:
         event.stop()
@@ -400,6 +433,11 @@ class MyComApp(App):
         self._left_panel.set_show_hidden(self._show_hidden)
         self._right_panel.set_show_hidden(self._show_hidden)
         self._schedule_save()
+
+    def action_toggle_console(self) -> None:
+        """Ctrl+O: recall the last command's output — a pure view, nothing
+        re-runs and no state changes."""
+        self.push_screen(_ConsoleOutputScreen(self._console_buffer.text()))
 
     def _open_mask_dialog(self, *, select: bool) -> None:
         panel = self.active_panel

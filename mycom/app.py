@@ -11,6 +11,7 @@ from mycom.config import load_config
 from mycom.keymap import Keymap
 from mycom.logging_setup import configure_logging
 from mycom.panels.file_browser import FileBrowserPanel
+from mycom.panels.views import ViewMode
 from mycom.widgets.header import AppHeader
 from mycom.widgets.status_bar import StatusBar
 
@@ -44,7 +45,7 @@ class MyComApp(App):
         name = panel.file_list.selected_name
         if name is None:
             return
-        if name == "__parent__":
+        if name == "..":
             panel.navigate_up()
             return
         target = panel.current_path / name
@@ -125,6 +126,15 @@ class MyComApp(App):
             left.file_list.select_by_name(right_cursor)
         if left_cursor is not None:
             right.file_list.select_by_name(left_cursor)
+
+    def action_view_brief(self) -> None:
+        self.active_panel.set_view_mode(ViewMode.BRIEF)
+
+    def action_view_full(self) -> None:
+        self.active_panel.set_view_mode(ViewMode.FULL)
+
+    def action_view_wide(self) -> None:
+        self.active_panel.set_view_mode(ViewMode.WIDE)
 
     def action_resize_grow(self) -> None:
         self._resize_index = min(self._resize_index + 1, len(_RESIZE_STEPS) - 1)

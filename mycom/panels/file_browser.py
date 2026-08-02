@@ -6,9 +6,11 @@ import logging
 from pathlib import Path
 
 from textual.app import ComposeResult
+from textual.widgets import Static
 
 from mycom.operations.sort import SORT_FIELDS, sort_entries
 from mycom.panels.base import BasePanel, PanelMode
+from mycom.panels.views import ViewMode
 from mycom.utils.fs import FileEntry, format_date, format_permissions, format_size, list_directory
 from mycom.widgets.dialog import ErrorDialog
 from mycom.widgets.file_list import FileList
@@ -30,6 +32,11 @@ class FileBrowserPanel(BasePanel):
     FileBrowserPanel.active {
         border: solid #00ffff;
     }
+    FileBrowserPanel > .footer {
+        height: 1;
+        background: #000080;
+        color: #00ffff;
+    }
     """
 
     def __init__(
@@ -44,6 +51,7 @@ class FileBrowserPanel(BasePanel):
         self._current_path = start_path or Path.cwd()
         self._path_bar = PathBar(path=self._current_path)
         self._file_list = FileList()
+        self._footer = Static("", classes="footer")
         self._show_hidden = show_hidden
         self._entries: list[FileEntry] = []
         if sort_field not in SORT_FIELDS:
@@ -58,9 +66,24 @@ class FileBrowserPanel(BasePanel):
     def compose(self) -> ComposeResult:
         yield self._path_bar
         yield self._file_list
+        yield self._footer
 
     def on_mount(self) -> None:
         self.refresh_listing()
+
+    def on_data_table_cell_highlighted(self, event) -> None:
+        self._update_footer()
+
+    def on_data_table_row_highlighted(self, event) -> None:
+        self._update_footer()
+
+    def _update_footer(self) -> None:
+        count = len(self._entries)
+        name = self._file_list.selected_name
+        text = f"{count} item{'s' if count != 1 else ''}"
+        if name:
+            text += f"  {name}"
+        self._footer.update(text)
 
     def refresh_listing(self) -> None:
         """Reload the directory listing from the current path.
@@ -86,7 +109,7 @@ class FileBrowserPanel(BasePanel):
         display_entries = [
             {
                 "name": e.name,
-                "size": format_size(e.size) if not e.is_dir else "",
+                "size": "<DIR>" if e.is_dir else format_size(e.size),
                 "modified": format_date(e.modified),
                 "permissions": format_permissions(e.permissions),
                 "is_dir": e.is_dir,
@@ -96,6 +119,16 @@ class FileBrowserPanel(BasePanel):
         ]
         self._file_list.load_directory(display_entries, self._current_path)
         self._path_bar.path = self._current_path
+        self._update_footer()
+
+    def set_view_mode(self, mode: ViewMode) -> None:
+        """Switch this panel's view mode (Brief/Full/Wide)."""
+        self._file_list.set_view_mode(mode)
+        self._update_footer()
+
+    @property
+    def view_mode(self) -> ViewMode:
+        return self._file_list.view_mode
 
     def _show_error(self, message: str) -> None:
         if self.app is not None:
@@ -132,7 +165,7 @@ class FileBrowserPanel(BasePanel):
 
     def get_selected_files(self) -> list[Path]:
         name = self._file_list.selected_name
-        if name and name != "__parent__":
+        if name and name != "..":
             return [self._current_path / name]
         return []
 

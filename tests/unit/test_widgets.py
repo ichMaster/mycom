@@ -64,7 +64,7 @@ async def test_file_list_dirs_before_files():
         fl.load_directory(SAMPLE_ENTRIES, Path("/home/user"))
         # Row 0 = .., rows 1-2 = dirs (docs, src), rows 3-4 = files
         rows = list(fl.rows)
-        assert str(rows[0].value) == "__parent__"
+        assert str(rows[0].value) == ".."
 
 
 @pytest.mark.asyncio

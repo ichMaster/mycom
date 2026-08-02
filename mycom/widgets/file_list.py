@@ -1,4 +1,4 @@
-"""File list widget based on Textual DataTable."""
+"""File list widget based on Textual DataTable, driven by ViewMode column specs."""
 
 from __future__ import annotations
 
@@ -7,9 +7,32 @@ from pathlib import Path
 from textual.widgets import DataTable
 from textual.widgets.data_table import RowDoesNotExist
 
+from mycom.panels.views import FIELD_HEADERS, VIEW_SPECS, ViewMode
+
+_MIN_BRIEF_COLUMN_WIDTH = 22
+_NAME_TRUNCATE_WIDTH = 40
+_BRIEF_TRUNCATE_WIDTH = _MIN_BRIEF_COLUMN_WIDTH - 2
+
+
+def truncate_name(text: str, max_width: int) -> str:
+    """Truncate to at most max_width codepoints, appending an ellipsis."""
+    if len(text) <= max_width:
+        return text
+    if max_width <= 1:
+        return text[:max_width]
+    return text[: max_width - 1] + "…"
+
+
+def _icon(entry: dict) -> str:
+    if entry.get("is_symlink"):
+        return "~"
+    if entry.get("is_dir"):
+        return "\\"
+    return " "
+
 
 class FileList(DataTable):
-    """Displays a directory listing with columns for type, name, size, date, permissions."""
+    """Displays a directory listing; column layout driven by ViewMode (data, not subclasses)."""
 
     DEFAULT_CSS = """
     FileList {
@@ -37,11 +60,40 @@ class FileList(DataTable):
         super().__init__(**kwargs)
         self._current_path: Path = Path.cwd()
         self._entries: list[dict] = []
+        self._view_mode: ViewMode = ViewMode.FULL
+        self._brief_columns: int = 1
+        self._brief_names: list[str] = []  # icon+name (or "..") in grid reading order
         self.cursor_type = "row"
         self.zebra_stripes = False
 
     def on_mount(self) -> None:
-        self.add_columns("", "Name", "Size", "Modified", "Perms")
+        self._rebuild_columns()
+
+    @property
+    def view_mode(self) -> ViewMode:
+        return self._view_mode
+
+    def set_view_mode(self, mode: ViewMode) -> None:
+        """Switch view mode and re-render the current entries."""
+        if mode is self._view_mode:
+            return
+        self._view_mode = mode
+        self._rebuild_columns()
+        self.load_directory(self._entries, self._current_path)
+
+    def _rebuild_columns(self) -> None:
+        self.clear(columns=True)
+        if self._view_mode is ViewMode.BRIEF:
+            width = max(self.size.width, _MIN_BRIEF_COLUMN_WIDTH)
+            self._brief_columns = max(1, width // _MIN_BRIEF_COLUMN_WIDTH)
+            for i in range(self._brief_columns):
+                self.add_column("", key=f"col{i}")
+        else:
+            self._brief_columns = 1
+            spec = VIEW_SPECS[self._view_mode]
+            self.add_column("", key="icon")
+            for field in spec.fields:
+                self.add_column(FIELD_HEADERS[field], key=field)
 
     def load_directory(self, entries: list[dict], path: Path) -> None:
         """Load file entries into the table.
@@ -52,48 +104,85 @@ class FileList(DataTable):
         """
         self._current_path = path
         self._entries = entries
-        self.clear()
+        if self._view_mode is ViewMode.BRIEF:
+            self._load_brief(entries, path)
+        else:
+            self._load_columns(entries, path)
 
-        if path != Path("/"):
-            self.add_row("..", "..", "", "", "", key="__parent__")
-
+    def _ordered(self, entries: list[dict]) -> list[dict]:
         dirs = [e for e in entries if e.get("is_dir")]
         files = [e for e in entries if not e.get("is_dir")]
+        return dirs + files
 
-        for entry in dirs + files:
-            if entry.get("is_symlink"):
-                icon = "~"
-            elif entry.get("is_dir"):
-                icon = "\\"
-            else:
-                icon = " "
-            self.add_row(
-                icon,
-                entry["name"],
-                entry.get("size", ""),
-                entry.get("modified", ""),
-                entry.get("permissions", ""),
-                key=entry["name"],
-            )
+    def _load_columns(self, entries: list[dict], path: Path) -> None:
+        self.clear()
+        spec = VIEW_SPECS[self._view_mode]
+        if path != Path("/"):
+            blanks = ["" if f != "name" else ".." for f in spec.fields]
+            self.add_row("..", *blanks, key="..")
+        for entry in self._ordered(entries):
+            cells = [_icon(entry)]
+            for field in spec.fields:
+                value = entry.get(field, "")
+                if field == "name":
+                    value = truncate_name(str(value), _NAME_TRUNCATE_WIDTH)
+                cells.append(value)
+            self.add_row(*cells, key=entry["name"])
+
+    def _load_brief(self, entries: list[dict], path: Path) -> None:
+        self.clear()
+        names: list[str] = []
+        if path != Path("/"):
+            names.append("..")
+        for entry in self._ordered(entries):
+            names.append(_icon(entry) + entry["name"])
+        self._brief_names = names
+
+        cols = self._brief_columns
+        num_rows = -(-len(names) // cols) if names else 0
+        for r in range(num_rows):
+            cells = []
+            for c in range(cols):
+                idx = r * cols + c
+                cell = truncate_name(names[idx], _BRIEF_TRUNCATE_WIDTH) if idx < len(names) else ""
+                cells.append(cell)
+            self.add_row(*cells)
 
     @property
     def current_path(self) -> Path:
         return self._current_path
-
-    def select_by_name(self, name: str) -> None:
-        """Move the cursor to the row keyed by `name`; falls back to row 0."""
-        if self.row_count == 0:
-            return
-        try:
-            row_index = self.get_row_index(name)
-        except RowDoesNotExist:
-            row_index = 0
-        self.move_cursor(row=row_index)
 
     @property
     def selected_name(self) -> str | None:
         """Return the name of the currently highlighted entry."""
         if self.row_count == 0:
             return None
+        if self._view_mode is ViewMode.BRIEF:
+            row, col = self.cursor_coordinate
+            idx = row * self._brief_columns + col
+            if not (0 <= idx < len(self._brief_names)):
+                return None
+            raw = self._brief_names[idx]
+            return raw if raw == ".." else raw[1:]
         row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
-        return str(row_key.value)
+        return str(row_key.value) if row_key.value is not None else None
+
+    def select_by_name(self, name: str) -> None:
+        """Move the cursor to the row/cell for `name`; falls back to the first entry."""
+        if self.row_count == 0:
+            return
+        if self._view_mode is ViewMode.BRIEF:
+            idx = 0
+            for i, raw in enumerate(self._brief_names):
+                candidate = raw if raw == ".." else raw[1:]
+                if candidate == name:
+                    idx = i
+                    break
+            cols = self._brief_columns
+            self.move_cursor(row=idx // cols, column=idx % cols)
+            return
+        try:
+            row_index = self.get_row_index(name)
+        except RowDoesNotExist:
+            row_index = 0
+        self.move_cursor(row=row_index)

@@ -168,6 +168,47 @@ async def test_progress_dialog_escape_does_not_dismiss():
 
 
 @pytest.mark.asyncio
+async def test_input_dialog_select_stem_preselects_name_without_extension():
+    app = DialogTestApp()
+    async with app.run_test() as pilot:
+        app.push_screen(InputDialog("Rename to:", default="report.txt", select_stem=True))
+        await pilot.pause()
+        input_widget = app.screen.query_one("#input")
+        assert input_widget.selected_text == "report"
+
+
+@pytest.mark.asyncio
+async def test_input_dialog_select_stem_selects_whole_name_for_dotfile():
+    app = DialogTestApp()
+    async with app.run_test() as pilot:
+        app.push_screen(InputDialog("Rename to:", default=".gitignore", select_stem=True))
+        await pilot.pause()
+        input_widget = app.screen.query_one("#input")
+        assert input_widget.selected_text == ".gitignore"
+
+
+@pytest.mark.asyncio
+async def test_input_dialog_select_stem_typing_overwrites_selection():
+    app = DialogTestApp()
+    async with app.run_test() as pilot:
+        result = "not_set"
+
+        def on_dismiss(value: str | None) -> None:
+            nonlocal result
+            result = value
+
+        app.push_screen(
+            InputDialog("Rename to:", default="report.txt", select_stem=True),
+            callback=on_dismiss,
+        )
+        await pilot.pause()
+        await pilot.press("x")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert result == "x.txt"
+
+
+@pytest.mark.asyncio
 async def test_input_dialog_enter_submits_value():
     """The v0.1 ad-hoc InputDialog had no Enter handler at all — Enter while
     typing did nothing. Building on DialogKit closes that gap."""

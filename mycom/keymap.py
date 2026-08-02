@@ -31,6 +31,7 @@ DEFAULT_COMMANDS: tuple[Command, ...] = (
     Command("edit", ("f4",), "panel", "Edit", slot=4),
     Command("copy", ("f5",), "panel", "Copy", slot=5),
     Command("move", ("f6",), "panel", "RenMov", slot=6),
+    Command("rename", ("shift+f6",), "panel", "Rename"),
     Command("mkdir", ("f7",), "panel", "MkDir", slot=7),
     Command("delete", ("f8",), "panel", "Delete", slot=8),
     Command("quit", ("f10",), "panel", "Quit", slot=10),

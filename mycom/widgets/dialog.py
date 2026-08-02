@@ -9,6 +9,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, ProgressBar
+from textual.widgets._input import Selection
 
 from mycom.fileops.engine import CancelToken, OpProgress
 from mycom.utils.fs import format_size
@@ -229,10 +230,19 @@ class ConfirmDialog(DialogKit[bool]):
         return button_id == "yes"
 
 
+def _stem_end(name: str) -> int:
+    """Index where a filename's stem ends (FAR convention: up to the last
+    `.`, but a leading dot doesn't count — `.gitignore` has no extension)."""
+    idx = name.rfind(".")
+    return idx if idx > 0 else len(name)
+
+
 class InputDialog(DialogKit[str | None]):
     """Modal text input dialog, built on DialogKit."""
 
-    def __init__(self, prompt: str, default: str = "", **kwargs) -> None:
+    def __init__(
+        self, prompt: str, default: str = "", *, select_stem: bool = False, **kwargs
+    ) -> None:
         super().__init__(
             message=prompt,
             buttons=(
@@ -243,9 +253,14 @@ class InputDialog(DialogKit[str | None]):
             **kwargs,
         )
         self._default = default
+        self._select_stem = select_stem
 
     def compose_body(self) -> ComposeResult:
         yield Input(value=self._default, id="input")
+
+    def on_mount(self) -> None:
+        if self._select_stem:
+            self.query_one("#input", Input).selection = Selection(0, _stem_end(self._default))
 
     def _result_for(self, button_id: str) -> str | None:
         if button_id == "ok":

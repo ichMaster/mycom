@@ -14,6 +14,7 @@ from mycom.config import GeneralConfig, load_config
 from mycom.fileops import (
     CancelToken,
     ConflictTypeMismatchError,
+    ExecutionResult,
     OpPlan,
     OpProgress,
     PlanEntry,
@@ -617,6 +618,59 @@ class MyComApp(App):
         panel.refresh_listing()
         if next_name:
             panel.file_list.select_by_name(next_name)
+
+    def action_rename(self) -> None:
+        panel = self.active_panel
+        name = panel.file_list.selected_name
+        if name is None or name == "..":
+            return
+        src = panel.current_path / name
+
+        def on_dismiss(new_name: str | None) -> None:
+            if not new_name or new_name == name:
+                return
+            self._run_rename(panel, src, new_name)
+
+        self.push_screen(
+            InputDialog(f'Rename "{name}" to:', default=name, select_stem=True),
+            callback=on_dismiss,
+        )
+
+    def _run_rename(self, panel: FileBrowserPanel, src: Path, new_name: str) -> None:
+        target = panel.current_path / new_name
+        is_dir = src.is_dir() and not src.is_symlink()
+        is_symlink = src.is_symlink()
+        size = 0 if is_dir or is_symlink else src.stat().st_size
+        entry = PlanEntry(src=src, dst=target, is_dir=is_dir, is_symlink=is_symlink, size=size)
+        plan = OpPlan((entry,), size, 0 if is_dir else 1)
+        cancel = CancelToken()
+        # Always same-directory, so always same-filesystem — move_entry takes
+        # the instant rename() path; a conflict still goes through the same
+        # ConflictDialog copy/move use.
+        conflict_policy = ConflictDialogPolicy(self, panel.current_path)
+
+        def worker() -> None:
+            try:
+                result = execute_move_plan(plan, cancel, conflict_policy, lambda p: None)
+            except ConflictTypeMismatchError as exc:
+                self.call_from_thread(self._rename_error, exc)
+                return
+            self.call_from_thread(self._finish_rename, panel, result)
+
+        self.run_worker(worker, thread=True)
+
+    def _finish_rename(self, panel: FileBrowserPanel, result: ExecutionResult) -> None:
+        panel.refresh_listing()
+        if result.completed:
+            panel.file_list.select_by_name(result.completed[-1].dst.name)
+
+    def _rename_error(self, exc: ConflictTypeMismatchError) -> None:
+        self.push_screen(
+            ErrorDialog(
+                f"Cannot rename: a file exists where a folder is expected at {exc.entry.dst}"
+            )
+        )
+        self.active_panel.refresh_listing()
 
     def action_resize_grow(self) -> None:
         self._resize_index = min(self._resize_index + 1, len(_RESIZE_STEPS) - 1)

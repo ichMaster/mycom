@@ -146,6 +146,28 @@ async def test_confirm_dialog_alt_hotkey():
 
 
 @pytest.mark.asyncio
+async def test_progress_dialog_escape_does_not_dismiss():
+    """Textual dispatches on_key to every MRO class that defines it, so the
+    v0.2 `key_escape` no-op didn't actually suppress DialogKit's own escape
+    handling — Esc silently dismissed the dialog anyway (code review v0.4).
+    The fix routes through the `_on_escape` hook instead."""
+    app = DialogTestApp()
+    async with app.run_test() as pilot:
+        dismissed = False
+
+        def on_dismiss(_value: None) -> None:
+            nonlocal dismissed
+            dismissed = True
+
+        app.push_screen(ProgressDialog("Working..."), callback=on_dismiss)
+        await pilot.pause()
+        await pilot.press("escape")
+        await pilot.pause()
+        assert dismissed is False
+        assert len(app.screen_stack) == 2
+
+
+@pytest.mark.asyncio
 async def test_input_dialog_enter_submits_value():
     """The v0.1 ad-hoc InputDialog had no Enter handler at all — Enter while
     typing did nothing. Building on DialogKit closes that gap."""

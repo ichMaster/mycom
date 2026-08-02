@@ -132,6 +132,19 @@ class DialogKit(ModalScreen[DialogResult], Generic[DialogResult]):
     def _activate(self, button_id: str) -> None:
         self.dismiss(self._result_for(button_id))
 
+    def _on_escape(self) -> None:
+        """Esc behavior — override to customize (default: dismiss with cancel_result).
+
+        Subclasses must override this rather than `on_key` itself: Textual
+        dispatches a `Key` message to every class in the MRO that defines
+        `on_key`/`_on_key`, not just the most-derived one, so a subclass
+        `on_key` calling `super().on_key(event)` runs DialogKit's handling
+        TWICE (once explicitly, once via Textual's own independent dispatch),
+        double-dismissing the screen. Plain method overrides like this one
+        aren't subject to that — normal single-dispatch MRO applies.
+        """
+        self.dismiss(self._cancel_result)
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id is not None:
             self._activate(event.button.id)
@@ -144,7 +157,7 @@ class DialogKit(ModalScreen[DialogResult], Generic[DialogResult]):
         Input's own key handling claims Left/Right for the text cursor and
         arrows can never move focus away from it again (code review #1).
         """
-        buttons = list(self.query(Button))
+        buttons = [b for b in self.query(Button) if b.display]
         if not buttons:
             return
         if self.focused in buttons:
@@ -172,7 +185,7 @@ class DialogKit(ModalScreen[DialogResult], Generic[DialogResult]):
 
         if event.key == "escape":
             event.stop()
-            self.dismiss(self._cancel_result)
+            self._on_escape()
             return
 
         if not input_focused:
@@ -267,7 +280,8 @@ class ProgressDialog(DialogKit[None]):
         bar = self.query_one("#progress", ProgressBar)
         bar.update(progress=value)
 
-    def key_escape(self) -> None:
-        # No cancel affordance yet — dismissing would misleadingly suggest a
-        # running operation stopped. Revisit with the operation engine (v0.4).
+    def _on_escape(self) -> None:
+        # No cancel affordance — dismissing would misleadingly suggest a
+        # running operation stopped. See OperationProgressDialog for the real
+        # Cancel-button affordance used by copy/move/delete (v0.4).
         pass

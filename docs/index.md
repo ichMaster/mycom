@@ -2,9 +2,21 @@
 
 This folder documents the **actual, implemented code** — not the design.
 
-It is intentionally empty right now: the pre-pivot documentation described the
-old concept and was removed. As roadmap phases ship, user and API documentation
-for the code that actually exists is (re)generated here.
+## Status: v0.1 — Panel core retrofit
+
+Dual panels navigate the filesystem with a data-driven keymap registry: Tab/Enter/Backspace
+navigation, `Ctrl+U` panel swap, cursor-restore on going up, an error dialog instead of a
+silent-empty-panel on an unreadable/vanished directory, resizable panels, three view modes
+(Brief/Full/Wide), and the four FAR sort keys with a header direction glyph. Config-driven
+`show_hidden`/default sort, and env-configurable file logging. See
+[Key Bindings](keybindings.md) and [Configuration](configuration.md).
+
+File operations, the command line/console, the viewer/editor, the AI command palette, and
+Claude Code integration are not built yet — see `spec/roadmap.md` for what ships in which
+phase.
+
+As later roadmap phases ship, this section (and its pages) are updated to describe what
+actually exists at that point — never what's planned.
 
 The design lives in the repository's `spec/` folder:
 

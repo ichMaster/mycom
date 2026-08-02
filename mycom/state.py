@@ -84,19 +84,29 @@ class StateDB:
         self._conn = self._open()
 
     def _open(self) -> sqlite3.Connection:
+        # Corruption probe, narrowly scoped to opening + validating the file —
+        # deliberately NOT wrapped around _migrate() too (code review #1): a
+        # transient sqlite3.OperationalError (e.g. "database is locked") is a
+        # DatabaseError subclass, and treating it the same as genuine
+        # corruption would wipe valid, previously-saved state on nothing more
+        # than lock contention. A garbage/non-SQLite file fails as soon as the
+        # PRAGMA statements try to read its header, so the probe covers
+        # _connect() itself, not just the SELECT.
         try:
-            conn = sqlite3.connect(self._path)
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("SELECT count(*) FROM sqlite_master")  # forces validity check
-            self._migrate(conn)
-            return conn
+            conn = self._connect()
+            conn.execute("SELECT count(*) FROM sqlite_master")
         except sqlite3.DatabaseError:
             logger.warning("Corrupt or invalid state DB at %s — recreating", self._path)
             self._path.unlink(missing_ok=True)
-            conn = sqlite3.connect(self._path)
-            conn.execute("PRAGMA journal_mode=WAL")
-            self._migrate(conn)
-            return conn
+            conn = self._connect()
+        self._migrate(conn)
+        return conn
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self._path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        return conn
 
     def _current_version(self, conn: sqlite3.Connection) -> int:
         try:

@@ -85,6 +85,44 @@ def test_corrupt_db_file_is_recreated_not_raised(tmp_path):
     db.close()
 
 
+def test_transient_operational_error_during_migrate_does_not_wipe_valid_data(tmp_path, monkeypatch):
+    """Code review #1: a transient sqlite3.OperationalError (e.g. "database is
+    locked") is a DatabaseError subclass — it must NOT be treated the same as
+    genuine file corruption, or lock contention would silently destroy valid,
+    previously-saved state."""
+    db_path = tmp_path / "state.db"
+    db = StateDB(db_path)
+    db.save_panel_state("left", "/home/user", "size", False, "wide")
+    db.close()
+
+    real_migrate = StateDB._migrate
+    calls = {"n": 0}
+
+    def flaky_migrate(self, conn):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise sqlite3.OperationalError("database is locked")
+        return real_migrate(self, conn)
+
+    monkeypatch.setattr(StateDB, "_migrate", flaky_migrate)
+
+    with pytest.raises(sqlite3.OperationalError):
+        StateDB(db_path)
+
+    # The file must survive untouched — re-opening normally (no injected
+    # fault) must still see the data saved above, not a fresh empty schema.
+    db2 = StateDB(db_path)
+    assert db2.get_panel_state("left").path == "/home/user"
+    db2.close()
+
+
+def test_busy_timeout_pragma_is_set(tmp_path):
+    db = StateDB(tmp_path / "state.db")
+    timeout = db._conn.execute("PRAGMA busy_timeout").fetchone()[0]
+    assert timeout > 0
+    db.close()
+
+
 def test_migration_from_empty_schema_creates_all_tables(tmp_path):
     db_path = tmp_path / "state.db"
     # An empty-but-valid SQLite file (schema version 0 — no schema_version row).

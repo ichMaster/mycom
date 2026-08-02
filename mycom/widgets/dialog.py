@@ -2,10 +2,158 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Generic, TypeVar
+
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, ProgressBar
+
+DialogResult = TypeVar("DialogResult")
+
+
+@dataclass(frozen=True)
+class DialogButton:
+    """One button in a DialogKit's button row."""
+
+    label: str
+    id: str
+    hotkey: str | None = None
+    default: bool = False
+    variant: str = "default"
+
+
+class DialogKit(ModalScreen[DialogResult], Generic[DialogResult]):
+    """The one reusable modal engine every dialog is built on (F0.15).
+
+    Framed window: title, message, subclass-supplied body widgets
+    (`compose_body`), and a button row. `Tab`/`Shift+Tab` cycle focus via
+    Textual's default focus chain; `Left`/`Up`/`Right`/`Down` additionally
+    cycle focus between buttons when an `Input` isn't focused (arrows edit
+    text there instead). A button's hotkey letter (underlined in its label)
+    activates it on a bare keypress when no `Input` is focused, or on
+    `Alt+letter` unconditionally. `Enter` activates the default button;
+    `Esc` dismisses with `cancel_result`. Dialogs stack — this is Textual's
+    native `ModalScreen` behavior; the kit doesn't interfere with it.
+    """
+
+    DEFAULT_CSS = """
+    DialogKit {
+        align: center middle;
+    }
+    DialogKit > Vertical {
+        width: auto;
+        min-width: 40;
+        height: auto;
+        border: thick $dialog-fg;
+        background: $dialog-bg;
+        color: $dialog-fg;
+        padding: 1 2;
+    }
+    DialogKit .dialog-title {
+        text-style: bold;
+        width: 1fr;
+        text-align: center;
+    }
+    DialogKit .dialog-message {
+        width: 1fr;
+        text-align: center;
+        margin: 1 0;
+    }
+    DialogKit .dialog-buttons {
+        width: 1fr;
+        height: auto;
+        align: center middle;
+    }
+    DialogKit Button {
+        margin: 0 2;
+        background: $dialog-bg;
+        color: $dialog-fg;
+    }
+    """
+
+    def __init__(
+        self,
+        *,
+        title: str = "",
+        message: str = "",
+        buttons: tuple[DialogButton, ...] = (),
+        cancel_result: DialogResult | None = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._title = title
+        self._message = message
+        self._buttons = buttons
+        self._cancel_result = cancel_result
+
+    def compose(self) -> ComposeResult:
+        with Vertical():
+            if self._title:
+                yield Label(self._title, classes="dialog-title")
+            if self._message:
+                yield Label(self._message, classes="dialog-message")
+            yield from self.compose_body()
+            with Horizontal(classes="dialog-buttons"):
+                for button in self._buttons:
+                    yield Button(self._button_label(button), id=button.id, variant=button.variant)
+
+    def compose_body(self) -> ComposeResult:
+        """Override to yield extra widgets between the message and the buttons."""
+        yield from ()
+
+    def _button_label(self, button: DialogButton) -> str:
+        if not button.hotkey:
+            return button.label
+        idx = button.label.lower().find(button.hotkey.lower())
+        if idx == -1:
+            return button.label
+        before, letter, after = button.label[:idx], button.label[idx], button.label[idx + 1 :]
+        return f"{before}[underline]{letter}[/underline]{after}"
+
+    def _result_for(self, button_id: str) -> DialogResult:
+        """Map a pressed/activated button id to the dismiss value. Override in subclasses."""
+        raise NotImplementedError
+
+    def _activate(self, button_id: str) -> None:
+        self.dismiss(self._result_for(button_id))
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id is not None:
+            self._activate(event.button.id)
+
+    def on_key(self, event) -> None:
+        input_focused = isinstance(self.focused, Input)
+
+        if not input_focused:
+            if event.key in ("left", "up"):
+                event.stop()
+                self.focus_previous()
+                return
+            if event.key in ("right", "down"):
+                event.stop()
+                self.focus_next()
+                return
+
+        for button in self._buttons:
+            if not button.hotkey:
+                continue
+            letter = button.hotkey.lower()
+            if event.key == f"alt+{letter}" or (event.key == letter and not input_focused):
+                event.stop()
+                self._activate(button.id)
+                return
+
+    def key_enter(self) -> None:
+        default = next((b for b in self._buttons if b.default), None)
+        if default is None and self._buttons:
+            default = self._buttons[-1]
+        if default is not None:
+            self._activate(default.id)
+
+    def key_escape(self) -> None:
+        self.dismiss(self._cancel_result)
 
 
 class ConfirmDialog(ModalScreen[bool]):

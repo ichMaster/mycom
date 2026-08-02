@@ -11,6 +11,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 
 from mycom.config import GeneralConfig, load_config
+from mycom.console.cd import parse_cd
 from mycom.fileops import (
     CancelToken,
     ConflictTypeMismatchError,
@@ -32,6 +33,7 @@ from mycom.panels.file_browser import FileBrowserPanel
 from mycom.panels.views import ViewMode
 from mycom.state import PanelState, StateDB
 from mycom.theme import FAR_CLASSIC_THEME
+from mycom.widgets.command_line import CommandLine
 from mycom.widgets.conflict_dialog import ConflictDialogPolicy
 from mycom.widgets.dialog import ConfirmDialog, ErrorDialog, InputDialog, OperationProgressDialog
 from mycom.widgets.header import AppHeader
@@ -82,6 +84,13 @@ class MyComApp(App):
             # leak through to the panel underneath (e.g. Enter dismissing a
             # dialog must not also navigate/go-up the panel behind it).
             return
+        if self._command_line.input.has_focus:
+            # Every key while typing a command belongs to the Input itself
+            # (editing, Enter-submits via on_input_submitted, Escape via
+            # key_escape) — control keys like Backspace bubble up to here
+            # same as any other key, and must never also drive panel
+            # navigation underneath while the user is just editing text.
+            return
         actions = self._keymap.actions_for_key(event.key, context="panel")
         if "switch_panel" in actions:
             event.prevent_default()
@@ -91,7 +100,15 @@ class MyComApp(App):
             self._handle_enter()
         elif "go_up" in actions:
             self.active_panel.navigate_up()
+            self._command_line.set_cwd(self.active_panel.current_path)
             self._schedule_save()
+        elif not actions and event.is_printable and event.character:
+            # No keymap action claims this key — FAR behavior: printable
+            # typing always goes to the command line, never the panel.
+            event.prevent_default()
+            event.stop()
+            self._command_line.focus_input()
+            self._command_line.input.insert_text_at_cursor(event.character)
 
     def _handle_enter(self) -> None:
         panel = self.active_panel
@@ -100,11 +117,13 @@ class MyComApp(App):
             return
         if name == "..":
             panel.navigate_up()
+            self._command_line.set_cwd(panel.current_path)
             return
         target = panel.current_path / name
         if target.is_dir():
             try:
                 panel.navigate_to(target)
+                self._command_line.set_cwd(panel.current_path)
                 self._schedule_save()
             except PermissionError:
                 self.notify("Permission denied", severity="error")
@@ -129,6 +148,7 @@ class MyComApp(App):
             self.bind(key, action, description=label)
         self._left_panel: FileBrowserPanel | None = None
         self._right_panel: FileBrowserPanel | None = None
+        self._command_line: CommandLine | None = None
         self._active_side: str = "left"
         self._resize_index: int = _RESIZE_STEPS.index(50)
         self._show_hidden: bool = False  # re-derived from config/state in compose()
@@ -163,7 +183,31 @@ class MyComApp(App):
             self._right_panel = self._build_panel("right", "right-panel", general)
             yield self._left_panel
             yield self._right_panel
+        self._command_line = CommandLine(cwd=self.active_panel.current_path)
+        yield self._command_line
         yield StatusBar(keymap=self._keymap, scope="panel")
+
+    def on_command_line_submitted(self, event: CommandLine.Submitted) -> None:
+        target = parse_cd(event.text)
+        if target is None:
+            # Real execution arrives with MC-034; nothing to do with a
+            # non-cd command yet.
+            return
+        target_path = Path(target)
+        if not target_path.is_absolute():
+            # Relative paths resolve against the active panel's shown
+            # directory — cd-sync's whole point is that this app never
+            # relies on the process's own (untouched) OS-level cwd.
+            target_path = self.active_panel.current_path / target_path
+        # navigate_to() shows its own error dialog and keeps the previous
+        # path on failure — it never raises.
+        self.active_panel.navigate_to(target_path)
+        self._command_line.set_cwd(self.active_panel.current_path)
+        # Submitting leaves the Input focused (nothing about a message post
+        # changes focus) — return it to the panel so the next keypress
+        # (Tab, arrows, F-keys, ...) reaches panel navigation immediately,
+        # instead of being silently swallowed by on_key's has-focus guard.
+        self.active_panel.file_list.focus()
 
     def _build_panel(self, side: str, widget_id: str, general: GeneralConfig) -> FileBrowserPanel:
         saved: PanelState | None = self._state_db.get_panel_state(side) if self._state_db else None
@@ -211,6 +255,7 @@ class MyComApp(App):
         self._active_side = "right" if self._active_side == "left" else "left"
         self.active_panel.activate()
         self.active_panel.file_list.focus()
+        self._command_line.set_cwd(self.active_panel.current_path)
         self._apply_panel_widths()
         self._schedule_save()
 
@@ -229,6 +274,7 @@ class MyComApp(App):
             left.file_list.select_by_name(right_cursor)
         if left_cursor is not None:
             right.file_list.select_by_name(left_cursor)
+        self._command_line.set_cwd(self.active_panel.current_path)
         self._schedule_save()
 
     def action_view_brief(self) -> None:

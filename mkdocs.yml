@@ -1,5 +1,5 @@
 site_name: MyCom
-site_description: A modern dual-panel TUI file manager inspired by FAR Commander
+site_description: A keyboard-first dual-panel TUI file manager in the spirit of FAR Manager, with an AI command palette and Claude Code integration
 repo_url: https://github.com/ichMaster/mycom
 
 theme:
@@ -10,31 +10,6 @@ theme:
 
 nav:
   - Home: index.md
-  - Getting Started: getting-started.md
-  - User Guide:
-    - Configuration: configuration.md
-    - Keybindings: keybindings.md
-    - Navigation: navigation.md
-  - Components:
-    - Widgets: widgets.md
-    - Panels: panels.md
-    - Architecture: architecture.md
-  - Development: development.md
-  - API Reference: reference/
-
-plugins:
-  - search
-  - mkdocstrings:
-      handlers:
-        python:
-          options:
-            show_source: true
-            show_root_heading: true
-  - gen-files:
-      scripts:
-        - docs/gen_ref_pages.py
-  - literate-nav:
-      nav_file: SUMMARY.md
 
 markdown_extensions:
   - admonition

@@ -1,11 +1,12 @@
 ---
 name: release-version
-description: Bump MyCom version, update all version files, add RELEASE.txt entry, commit, tag, and push.
+description: Bump project version, update all version files, add RELEASE.txt entry, commit, tag, and push.
 ---
 
 # Skill: Release Version
 
-Bump the MyCom version, update all version references, write release notes, commit, tag, and push.
+Bump the project version, update all version references, write release notes,
+commit, tag, and push.
 
 ## Usage
 
@@ -14,31 +15,34 @@ Bump the MyCom version, update all version references, write release notes, comm
 ```
 
 Examples:
-- `/release-version 0.1.0` — bump to 0.1.0, prompt for changelog
-- `/release-version 0.1.1 Fix panel resize crash; Add sort indicator` — bump with provided changelog items
+- `/release-version 0.2.0` -- bump to 0.2.0, prompt for changelog
+- `/release-version 0.4.0 File operations with progress and conflicts` -- bump with provided changelog items
 
-If no changelog items are provided, analyze uncommitted or recent commits since the last tag to auto-generate the changelog.
+If no changelog items are provided, analyze uncommitted or recent commits since
+the last tag to auto-generate the changelog.
 
-## Version scheme
-
-MyCom uses `x.y.z` versioning:
-- **x** — major version (0 during initial development)
-- **y** — phase number (increments with each roadmap phase)
-- **z** — fixes and patches within a phase
+Version notation `A.B.C`: `A` = roadmap version (v0 — MVP → 0), `B` = phase
+within that version (`v0.3`→B=3), `C` = post-release fix on that phase. So
+roadmap phase `vA.B` → semver `A.B.0`; a fix after it bumps `C` (e.g. v0.3 →
+`0.3.0`, a follow-up fix → `0.3.1`). Releases are cut per phase — MyCom builds
+one phase per release and the user launches the next
+([spec/roadmap.md](../../../spec/roadmap.md)). Note: the pre-pivot release
+`0.1.0` predates this scheme; the v0.1 retrofit ships as `0.1.1`. **Never
+change the version without explicit user confirmation.**
 
 ## Instructions
 
 ### Step 0: Parse arguments
 
-1. Extract the target version from the first argument (e.g., `0.1.0`)
+1. Extract the target version from the first argument (e.g., `0.2.0`)
 2. Remaining arguments (separated by `;`) become changelog bullet points
 3. Validate version format matches `X.Y.Z` (semver)
 
 ### Step 1: Verify prerequisites
 
-1. Confirm we are on the expected branch (`main` or user's working branch)
-2. Confirm working tree is clean (`git status`) — if dirty, ask the user whether to include uncommitted changes
-3. Read the current version from `VERSION` file
+1. Confirm we are on the expected branch
+2. Confirm working tree is clean (`git status`) -- if dirty, ask the user whether to include uncommitted changes
+3. Find the current version: check `VERSION`, `RELEASE.txt`, or the latest git tag
 4. Verify the new version is greater than the current version
 
 ### Step 2: Generate changelog (if not provided)
@@ -47,83 +51,54 @@ If no changelog items were given as arguments:
 
 1. Find the most recent version tag: `git describe --tags --abbrev=0`
 2. Collect commits since that tag: `git log --oneline <tag>..HEAD`
-3. Summarize the changes into concise bullet points (group related commits)
+3. Summarize the changes into concise bullet points (group related commits; reference the roadmap phase `vA.B` where relevant)
 4. Show the generated changelog to the user and ask for confirmation
 
 ### Step 3: Update version files
 
-Update the version string in these files:
+1. **`VERSION`** (create if it doesn't exist): the bare version string, e.g. `0.2.0`
+2. **`README.md`** (if present): update version reference
+3. **`pyproject.toml`**: update the `version = "..."` field
+4. **`RELEASE.txt`** (create if it doesn't exist): prepend a new version block at the top (after any header):
 
-1. **`VERSION`**:
    ```
-   <version>
-   ```
-
-2. **`mycom/__init__.py`**:
-   ```python
-   __version__ = "<version>"
-   ```
-
-3. **`pyproject.toml`**:
-   ```toml
-   version = "<version>"
+   Version <version> (YYYY-MM-DD)
+   ---------------------------
+   - <changelog item 1>
+   - <changelog item 2>
    ```
 
-4. **`README.md`** (if it contains a version reference):
-   - Update any `**Version:** X.Y.Z` line
+   Use today's date. Keep the existing entries below unchanged.
 
-### Step 4: Add RELEASE.txt entry
-
-Prepend a new version block at the top of `RELEASE.txt` (after the header):
-
-```
-Version <version> (YYYY-MM-DD)
----------------------------
-- <changelog item 1>
-- <changelog item 2>
-- ...
-```
-
-Use today's date. Keep the existing entries below unchanged.
-
-### Step 5: Commit
+### Step 4: Commit
 
 Stage only the version-related files:
 
 ```bash
-git add VERSION mycom/__init__.py pyproject.toml README.md RELEASE.txt
-```
-
-Commit with message:
-
-```bash
+git add VERSION README.md pyproject.toml RELEASE.txt
 git commit -m "$(cat <<'EOF'
 Release v<version>
 
 <1-2 sentence summary of what this release includes>
 
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 EOF
 )"
 ```
 
-### Step 6: Tag
-
-Create an annotated tag:
+### Step 5: Tag
 
 ```bash
 git tag -a v<version> -m "<one-line summary of the release>"
 ```
 
-### Step 7: Push
+### Step 6: Push
 
 ```bash
 git push && git push --tags
 ```
 
-### Step 8: Report
-
-Print a summary:
+### Step 7: Report
 
 ```
 Released v<version>
@@ -132,9 +107,8 @@ Released v<version>
   Tag:    v<version>
   Files updated:
     - VERSION
-    - mycom/__init__.py
-    - pyproject.toml
     - README.md
+    - pyproject.toml
     - RELEASE.txt
 ```
 
@@ -142,7 +116,8 @@ Released v<version>
 
 - **Never downgrade.** Refuse if the target version is less than or equal to the current version.
 - **Clean tree first.** If there are uncommitted changes, ask the user before proceeding.
-- **All version files.** Always update `VERSION`, `__init__.py`, `pyproject.toml`, and `RELEASE.txt` together.
 - **Annotated tags only.** Always use `git tag -a`, never lightweight tags.
-- **Don't modify other files.** This skill only touches version metadata, not source code.
+- **Don't modify source files.** This skill only touches version metadata (VERSION, README.md, pyproject.toml, RELEASE.txt), never application code under `mycom/`.
 - **Confirm changelog.** If auto-generating changelog from commits, show it to the user before committing.
+- **Plain-text release notes.** Keep `RELEASE.txt` plain text.
+- **Per-phase releases.** A release closes exactly one roadmap phase (`vA.B` → `A.B.0`); don't bundle phases.

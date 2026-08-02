@@ -1,54 +1,14 @@
-# MyCom
+# MyCom Documentation
 
-A modern, keyboard-driven dual-panel file manager for the terminal, inspired by FAR Commander.
+This folder documents the **actual, implemented code** — not the design.
 
-## Features
+It is intentionally empty right now: the pre-pivot documentation described the
+old concept and was removed. As roadmap phases ship, user and API documentation
+for the code that actually exists is (re)generated here.
 
-- **Dual-panel layout** — two side-by-side directory panels, switch with Tab
-- **Keyboard-first** — all operations via F-keys and hotkeys
-- **Quick filter** — type to filter files in real-time
-- **Sorting** — sort by name, size, date, or extension with direction toggle
-- **Pluggable viewers/editors** — extend with custom plugins (Phase 5)
-- **Integrated terminal** — switch any panel to a full terminal (Phase 6)
-- **LLM chat** — context-aware Claude assistant in any panel (Phase 7)
+The design lives in the repository's `spec/` folder:
 
-## Quick Start
-
-```bash
-# Clone and install
-git clone https://github.com/ichMaster/mycom.git
-cd mycom
-uv sync
-
-# Run
-uv run mycom
-```
-
-## Key Bindings
-
-| Key | Action |
-|-----|--------|
-| Tab | Switch active panel |
-| Enter | Open directory / file |
-| Backspace | Go to parent directory |
-| F3 | View file |
-| F4 | Edit file |
-| F5 | Copy |
-| F6 | Move |
-| F7 | Create directory |
-| F8 | Delete |
-| F10 / Ctrl+Q | Quit |
-| Ctrl+T | Toggle terminal panel |
-| Ctrl+L | Toggle LLM chat panel |
-
-See [Keybindings](keybindings.md) for the full list and customization options.
-
-## Documentation
-
-- [Getting Started](getting-started.md) — Installation and first run
-- [Configuration](configuration.md) — Config file format and options
-- [Navigation](navigation.md) — Directory browsing, filtering, sorting
-- [Panels](panels.md) — Panel system and modes
-- [Architecture](architecture.md) — Component layout and data flow
-- [Development](development.md) — Dev setup, testing, linting
-- [API Reference](reference/) — Auto-generated from source
+- `spec/mission.md` — what MyCom is and its principles
+- `spec/roadmap.md` — v0/v1 phases with DoD and tests
+- `spec/architecture.md` — components, invariants, package layout
+- `spec/far-spec/` — the FAR-derived feature scope and acceptance criteria

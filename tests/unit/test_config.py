@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from mycom.config import AppConfig, GeneralConfig, LLMConfig, PluginConfig, load_config
+from mycom.config import AppConfig, GeneralConfig, load_config
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 
@@ -53,7 +53,7 @@ def test_config_is_frozen():
     config = load_config(Path("/nonexistent/config.toml"))
     try:
         config.general = GeneralConfig(show_hidden=True)  # type: ignore[misc]
-        assert False, "Should have raised FrozenInstanceError"
+        raise AssertionError("Should have raised FrozenInstanceError")
     except AttributeError:
         pass
 

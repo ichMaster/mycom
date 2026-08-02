@@ -1,7 +1,8 @@
 """Tests for PathBar widget."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 from textual.app import App, ComposeResult
 
 from mycom.widgets.path_bar import PathBar

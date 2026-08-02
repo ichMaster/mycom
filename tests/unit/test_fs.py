@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from mycom.utils.fs import FileEntry, format_date, format_permissions, format_size, list_directory
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "sample_tree"

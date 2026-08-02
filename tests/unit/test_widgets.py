@@ -1,10 +1,11 @@
 """Tests for FileList widget."""
 
+from pathlib import Path
+
 import pytest
 from textual.app import App, ComposeResult
 
 from mycom.widgets.file_list import FileList
-from pathlib import Path
 
 
 class FileListApp(App):
@@ -13,10 +14,38 @@ class FileListApp(App):
 
 
 SAMPLE_ENTRIES = [
-    {"name": "readme.txt", "size": "1.2 KB", "modified": "2026-01-01", "permissions": "rw-r--r--", "is_dir": False, "is_symlink": False},
-    {"name": "src", "size": "", "modified": "2026-01-01", "permissions": "rwxr-xr-x", "is_dir": True, "is_symlink": False},
-    {"name": "docs", "size": "", "modified": "2026-01-01", "permissions": "rwxr-xr-x", "is_dir": True, "is_symlink": False},
-    {"name": "link.txt", "size": "500 B", "modified": "2026-01-01", "permissions": "rw-r--r--", "is_dir": False, "is_symlink": True},
+    {
+        "name": "readme.txt",
+        "size": "1.2 KB",
+        "modified": "2026-01-01",
+        "permissions": "rw-r--r--",
+        "is_dir": False,
+        "is_symlink": False,
+    },
+    {
+        "name": "src",
+        "size": "",
+        "modified": "2026-01-01",
+        "permissions": "rwxr-xr-x",
+        "is_dir": True,
+        "is_symlink": False,
+    },
+    {
+        "name": "docs",
+        "size": "",
+        "modified": "2026-01-01",
+        "permissions": "rwxr-xr-x",
+        "is_dir": True,
+        "is_symlink": False,
+    },
+    {
+        "name": "link.txt",
+        "size": "500 B",
+        "modified": "2026-01-01",
+        "permissions": "rw-r--r--",
+        "is_dir": False,
+        "is_symlink": True,
+    },
 ]
 
 

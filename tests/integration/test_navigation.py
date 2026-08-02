@@ -1,7 +1,8 @@
 """Integration tests for file navigation, filter, and sorting."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from mycom.app import MyComApp
 
@@ -25,7 +26,7 @@ async def test_enter_navigates_into_directory(tmp_path):
 @pytest.mark.asyncio
 async def test_navigate_up():
     app = MyComApp()
-    async with app.run_test() as pilot:
+    async with app.run_test():
         panel = app.active_panel
         original = panel.current_path
         panel.navigate_to(original / ".." if original != Path("/") else original)

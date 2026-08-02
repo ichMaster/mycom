@@ -1,10 +1,11 @@
 """Tests for panel system."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 from textual.app import App, ComposeResult
 
-from mycom.panels.base import BasePanel, PanelMode
+from mycom.panels.base import PanelMode
 from mycom.panels.file_browser import FileBrowserPanel
 
 

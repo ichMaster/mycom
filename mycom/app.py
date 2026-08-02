@@ -166,6 +166,9 @@ class MyComApp(App):
     def action_deselect_mask(self) -> None:
         self._open_mask_dialog(select=False)
 
+    def action_select_invert(self) -> None:
+        self.active_panel.invert_selection()
+
     def _open_mask_dialog(self, *, select: bool) -> None:
         panel = self.active_panel
         verb = "Select" if select else "Deselect"

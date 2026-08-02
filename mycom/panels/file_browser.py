@@ -238,6 +238,16 @@ class FileBrowserPanel(BasePanel):
                 self._selected.discard(entry.name)
         self._render_entries()
 
+    def invert_selection(self) -> None:
+        """Gray * / Alt+8: flip membership for every entry (".." is never in
+        `self._entries`, so it can never be selected either way)."""
+        for entry in self._entries:
+            if entry.name in self._selected:
+                self._selected.discard(entry.name)
+            else:
+                self._selected.add(entry.name)
+        self._render_entries()
+
     @property
     def file_list(self) -> FileList:
         return self._file_list

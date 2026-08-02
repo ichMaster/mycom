@@ -27,8 +27,11 @@ Built with Python and Textual.
     Dialog kit                keyboard-navigable modals: Tab/arrows/hotkeys/Enter/Esc, stackable
     Key bar                  F1-F10 labels generated from the keymap (never drifts); clickable
     Structured logging       env-configurable, file-based (never stdout — owns the terminal)
-    File operations          copy/move/delete/mkdir, viewer, editor, AI palette, Claude Code
-                              integration — coming in later v0 phases (see spec/roadmap.md)
+    File operations          Copy/Move (F5/F6, same-FS instant rename, cross-device verified
+                              copy+delete), Mkdir (F7), Delete (F8), Rename (Shift+F6) — worker
+                              thread, live progress, Cancel, a six-choice conflict dialog
+    Console, viewer, editor, AI palette, Claude Code integration — coming in later v0 phases
+                              (see spec/roadmap.md)
 
 
 ## Requirements
@@ -70,12 +73,13 @@ overridden in `config.toml` under `[keybindings]` — see Configuration below.
  Ctrl+H         Toggle hidden files    Ctrl+F5 / F6    Sort: date / size
  F10, Ctrl+Q    Quit
 
- Selection
- ──────────────────────────────
- Ins, Space     Toggle cursor entry, move down
- + (Alt+=)      Select by mask (e.g. *.py;*.md) — default "*" selects all
- - (Alt+-)      Deselect by mask
- * (Alt+8)      Invert selection
+ File operations                       Selection
+ ──────────────────────────────        ──────────────────────────────
+ F5             Copy                   Ins, Space     Toggle cursor entry, move down
+ F6             Move                   + (Alt+=)      Select by mask (e.g. *.py;*.md) —
+ Shift+F6       Rename (in place)                      default "*" selects all
+ F7             Mkdir                  - (Alt+-)      Deselect by mask
+ F8             Delete                 * (Alt+8)      Invert selection
 ```
 
 Going up restores the cursor onto the directory you just left. Pressing the active sort key
@@ -89,12 +93,29 @@ directory shows an error dialog instead of a silent empty panel.
 render in yellow. Mask select/deselect (`+`/`-`) prompt for a pattern (default `*`, so `+` then
 `Enter` selects everything); `*` inverts the current selection. Selection is per-panel, survives
 sort/view-mode changes, and clears when you navigate to a different directory. It's the input
-MyCom's file operations (copy/move/delete, v0.4) will act on once they land — no built-in
-consumer of a selection exists yet.
+file operations act on: selection-else-cursor (act on the selection if there is one, else the
+cursor entry).
 
-`F1` (help), `F3` (view), `F4` (edit), `F5` (copy), `F6` (move/rename), `F7` (mkdir), and `F8`
-(delete) are already bound in the keymap registry but have no handler yet — they arrive with
-file operations (v0.4) and the viewer/editor (v0.6).
+`F1` (help), `F3` (view), and `F4` (edit) are already bound in the keymap registry but have no
+handler yet — they arrive with the AI palette (v0.7) and the viewer/editor (v0.6).
+
+### File Operations
+
+`F5` Copy and `F6` Move prompt for a target directory (pre-filled with the passive panel's
+path); a plain `Shift+F6` Rename prompts in place with the name's stem pre-selected for
+overtyping (`report.txt` → `report` highlighted; a leading dot doesn't count, so `.gitignore`
+selects the whole name). `F7` Mkdir accepts a nested `a/b/c` path in one step. `F8` Delete asks
+to confirm (skippable via `confirm_delete = false`, see Configuration), with an unskippable
+second confirmation for any non-empty directory and an individual prompt for each read-only
+file in the batch.
+
+Every operation runs on a background thread — the UI stays responsive, and a real **Cancel**
+button appears on any operation large enough to show progress (bytes/files done, speed, ETA).
+Same-filesystem moves and renames are an instant `rename()` with no progress dialog; a
+cross-device move copies then verifies before deleting the source, never the reverse. A name
+collision opens a six-choice dialog (Overwrite / Skip / Rename / Overwrite All / Skip All /
+Cancel) — "All" answers apply for the rest of that one operation only. Deletion is permanent;
+there is no trash/recycle-bin integration yet.
 
 ### Key Bar
 
@@ -148,7 +169,8 @@ If the file doesn't exist, defaults are used. Edits take effect at next start.
 ```toml
 [general]
 show_hidden = false             # both panels start with hidden files shown/hidden
-confirm_delete = true           # not yet wired — arrives with delete (v0.4)
+confirm_delete = true           # false skips F8's routine "Delete X?" prompt only —
+                                 # the non-empty-dir/read-only-file warnings always show
 default_sort = "name"           # name | extension | date | size — invalid values
 default_sort_direction = "asc"  # fall back to "name" with a logged warning
                                  # "asc" | "desc"

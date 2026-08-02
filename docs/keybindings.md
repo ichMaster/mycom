@@ -34,6 +34,11 @@ is the framework's default focus-cycling key.
 | `Minus` (`Alt+-`) | `deselect_mask` | Deselect by mask (prompt) |
 | `Asterisk` (`Alt+8`) | `select_invert` | Invert the current selection |
 | `Ctrl+H` | `toggle_hidden` | Toggle hidden-file visibility, both panels |
+| `F5` | `copy` | Copy selection-else-cursor to a prompted target directory |
+| `F6` | `move` | Move selection-else-cursor to a prompted target directory |
+| `Shift+F6` | `rename` | Rename the cursor entry in place, stem pre-selected |
+| `F7` | `mkdir` | Create a directory (accepts a nested `a/b/c` path) |
+| `F8` | `delete` | Delete selection-else-cursor, permanently |
 | `F10`, `Ctrl+Q` | `quit` | Quit |
 
 Notes:
@@ -60,14 +65,63 @@ inverts. There's no dedicated select-all key — `+` with its pre-filled default
 directory navigation. Selected entries render in `$selected-fg` yellow (a literal hex imported
 from `mycom/theme.py`, since Rich markup needs a real color, not a CSS variable) in all three view
 modes. `FileBrowserPanel.get_selected_files()` returns the selection if non-empty, else the
-cursor file — "selection-else-cursor", the contract v0.4's file operations will consume; no
-built-in feature consumes a selection yet.
+cursor file — "selection-else-cursor", sorted (not raw `set` order, so multi-file operation
+order — and thus what a mid-operation cancel leaves behind — is deterministic). File operations
+(below) are its consumer.
+
+## File operations (v0.4)
+
+`mycom/fileops/` (`plan.py`, `policy.py`, `engine.py`) is the plan → execute engine every
+operation below drives from `mycom/app.py`, on a `run_worker(thread=True)` background thread —
+the UI thread is never blocked, and `OpProgress`/dialog updates are marshalled back via
+`call_from_thread`.
+
+- **`F5` Copy / `F6` Move** — `InputDialog` prompts for a target directory, pre-filled with the
+  passive panel's path. `build_plan` walks the selection-else-cursor sources into a flat
+  `PlanEntry` list; a copy or move onto itself, into its own subdirectory, or in place with the
+  same name is refused before any I/O. Move takes the instant `os.rename()` path when every entry
+  is on the same filesystem (`same_filesystem`, `st_dev`-based) — no progress dialog for what's
+  effectively free; a cross-device plan copies each file in 1 MiB chunks and only unlinks the
+  source once the destination's size is verified to match (`move_entry`), with the same
+  progress/Cancel UI as copy.
+- **`Shift+F6` Rename** — an `InputDialog` variant (`select_stem=True`) pre-selects the name's
+  stem (up to the last `.`; a leading dot doesn't count, so `.gitignore` selects the whole name)
+  for immediate overtyping. Always same-directory, so always the instant-rename path; a name
+  collision goes through the same six-choice dialog as copy/move, never raising.
+- **`F7` Mkdir** — `Path.mkdir(parents=True)` creates a nested `a/b/c` chain in one step (only the
+  leaf can collide); an existing-name collision re-opens the same prompt, pre-filled, once the
+  error is dismissed. Cursor lands on the new top-level segment.
+- **`F8` Delete** — a confirmation ladder: the routine "Delete X?" prompt (skippable via
+  `confirm_delete = false`, see [Configuration](configuration.md)), then an unskippable "not
+  empty, delete anyway?" for every non-empty directory in the selection, then an individual
+  "delete read-only file?" for every read-only file the walked plan touches (declining excludes
+  just that file, not the whole batch). A progress dialog appears only for trees at or above 20
+  files. The cursor moves to the next surviving entry, skipping past any row that's itself being
+  deleted. Deletion is permanent — no trash/recycle-bin integration yet.
+- **Conflicts** — a target that already exists opens `ConflictDialog`
+  (`mycom/widgets/conflict_dialog.py`): Overwrite, Skip, Rename (swaps in an `Input` pre-filled
+  with the conflicting name), Overwrite All, Skip All, Cancel. "All" answers are remembered for
+  the rest of that one operation only (`mycom.fileops.engine._resolve_conflict`'s `sticky` state
+  is local to a single `execute_plan` call) — a later, separate operation always asks again.
+  Directory-over-directory merges silently (per-file conflicts inside it are asked individually);
+  file-over-directory and directory-over-file are refused with a plain error, never offered the
+  six-choice dialog.
+- **Cancellation** — every operation's progress dialog carries a real **Cancel** button that
+  signals a `CancelToken`; the worker checks it between chunks (copy/move) or before each entry
+  (delete), so cancelling never leaves a source file it already fully processed in an
+  inconsistent state. A cancelled cross-device move's per-file guarantee is "never lost, never
+  duplicated": each file ends up exactly once, either still in the source or fully moved.
+- **Crash safety** — any unexpected `OSError` during an operation (permission denied, disk full,
+  a source vanishing mid-batch) shows a plain error dialog instead of propagating out of the
+  worker thread — Textual's `run_worker` defaults to tearing down the whole app on an uncaught
+  worker exception, so every operation's worker (and the main-thread plan-building step before
+  it) catches `OSError` explicitly.
 
 ## Reserved, not yet functional
 
-`F1` (`help`), `F3` (`view`), `F4` (`edit`), `F5` (`copy`), `F6` (`move`), `F7` (`mkdir`), `F8`
-(`delete`) are already declared in the keymap registry — pressing them is a safe no-op today.
-They gain handlers with file operations (v0.4) and the viewer/editor (v0.6).
+`F1` (`help`), `F3` (`view`), `F4` (`edit`) are already declared in the keymap registry —
+pressing them is a safe no-op today. They gain handlers with the viewer/editor (v0.6) and the AI
+palette (v0.7).
 
 ## Key bar
 

@@ -9,7 +9,7 @@ Edits take effect at the next start.
 | Key | Default | Wired? |
 |-----|---------|--------|
 | `show_hidden` | `false` | Yes — first-run default; once `state.db` has a saved value it wins on later starts (see [Persistence](#persistence)) |
-| `confirm_delete` | `true` | Not yet — arrives with delete (v0.4) |
+| `confirm_delete` | `true` | Yes — `false` skips F8's routine "Delete X?" prompt only; the non-empty-directory and read-only-file safety warnings always show regardless |
 | `default_sort` | `"name"` | Yes — `"name"` \| `"extension"` \| `"date"` \| `"size"`; an unrecognized value falls back to `"name"` and logs a `WARNING`. First-run default; `state.db` wins once populated. |
 | `default_sort_direction` | `"asc"` | Yes — `"asc"` \| `"desc"`. First-run default; `state.db` wins once populated. |
 

@@ -2,7 +2,7 @@
 
 This folder documents the **actual, implemented code** — not the design.
 
-## Status: v0.3 — Selection model, hidden files, SQLite persistence
+## Status: v0.4 — File operations
 
 Dual panels navigate the filesystem with a data-driven keymap registry: Tab/Enter/Backspace
 navigation, `Ctrl+U` panel swap (paths, cursor, **and selection**), cursor-restore on going up, an
@@ -19,16 +19,21 @@ bindings, so a label can never drift from what a key actually does; unassigned s
 
 Per-panel selection (`Ins`/`Space`, mask select/deselect, invert) renders yellow and drives a live
 footer count + size; `Ctrl+H` toggles hidden files globally, cursor-preserving. Panel paths, sort,
-view mode, and the hidden toggle now survive a restart — persisted to a versioned, WAL-mode SQLite
+view mode, and the hidden toggle survive a restart — persisted to a versioned, WAL-mode SQLite
 database (`mycom/state.py`) separate from the user-authored `config.toml`, with a graceful
 fallback when a saved path has vanished.
 
-See [Key Bindings](keybindings.md) (incl. selection, the key bar, and the dialog keyboard model)
-and [Configuration](configuration.md) (incl. persistence).
+Copy/Move (`F5`/`F6`), Mkdir (`F7`), Delete (`F8`), and in-place Rename (`Shift+F6`) run on a
+background worker thread with live progress, a real Cancel button, and a six-choice conflict
+dialog on a name collision — same-filesystem moves and renames are an instant `rename()`, a
+cross-device move only deletes the source once the copy is verified. See
+[Key Bindings](keybindings.md#file-operations-v04) for the full behavior.
 
-File operations, the command line/console, the viewer/editor, the AI command palette, and
-Claude Code integration are not built yet — see `spec/roadmap.md` for what ships in which
-phase.
+See [Key Bindings](keybindings.md) (incl. selection, file operations, the key bar, and the dialog
+keyboard model) and [Configuration](configuration.md) (incl. persistence).
+
+The command line/console, the viewer/editor, the AI command palette, and Claude Code integration
+are not built yet — see `spec/roadmap.md` for what ships in which phase.
 
 As later roadmap phases ship, this section (and its pages) are updated to describe what
 actually exists at that point — never what's planned.

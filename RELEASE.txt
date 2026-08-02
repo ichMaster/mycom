@@ -1,6 +1,14 @@
 MyCom — Release History
 =======================
 
+Version 0.2.0 (2026-08-02)
+---------------------------
+- v0.2 Dialog kit, Far theme, key bar: single-source theme file (256-color safe)
+- DialogKit reusable modal engine (Tab/arrow focus, hotkeys, Enter/Esc, stacking) with all four
+  dialogs rebuilt on it
+- F1-F10 key bar generated from the keymap registry
+- Completed panel footer
+
 Version 0.1.1 (2026-08-02)
 ---------------------------
 - v0.1 Panel core retrofit: data-driven keymap registry, config-wired panels, structured logging

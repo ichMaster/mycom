@@ -1,4 +1,4 @@
-"""Status bar widget showing F-key hints."""
+"""Status bar (key bar) widget: 10 slots generated from the keymap registry."""
 
 from __future__ import annotations
 
@@ -7,20 +7,29 @@ from textual.containers import Horizontal
 from textual.widget import Widget
 from textual.widgets import Static
 
-HINT_ITEMS = [
-    ("f1", "Help"),
-    ("f3", "View"),
-    ("f4", "Edit"),
-    ("f5", "Copy"),
-    ("f6", "Move"),
-    ("f7", "MkDir"),
-    ("f8", "Delete"),
-    ("f10", "Quit"),
-]
+from mycom.keymap import Keymap
+
+
+class _KeyBarSlot(Static):
+    """One clickable half (number or label) of a key-bar slot."""
+
+    def __init__(self, text: str, action: str, **kwargs) -> None:
+        super().__init__(text, **kwargs)
+        self._action = action
+
+    async def on_click(self, event) -> None:
+        if self._action:
+            await self.app.run_action(self._action)
 
 
 class StatusBar(Widget):
-    """Bottom bar displaying F-key action hints."""
+    """Bottom bar: 10 labeled key-bar slots (F0.14).
+
+    Generated from `Keymap.key_bar_slots(scope)` — labels can never drift
+    from actual bindings, because they're read from the same registry that
+    creates the binding. Unassigned slots render empty, not stale. Clicking
+    a slot runs the same action its key would (`App.run_action`).
+    """
 
     DEFAULT_CSS = """
     StatusBar {
@@ -45,16 +54,30 @@ class StatusBar(Widget):
     }
     """
 
-    def __init__(self, hints: list[tuple[str, str]] | None = None, **kwargs) -> None:
+    def __init__(self, keymap: Keymap | None = None, scope: str = "panel", **kwargs) -> None:
+        # NOTE: the keymap-context parameter is named `scope`, not `context` —
+        # a Widget.__init__ parameter whose name contains "context" hangs
+        # Textual's mount machinery in this version (reproduced in isolation;
+        # unrelated to any of this widget's own logic). Do not rename back.
         super().__init__(**kwargs)
-        self._hints = hints or HINT_ITEMS
+        self._keymap = keymap
+        self._scope = scope
 
     def compose(self) -> ComposeResult:
         with Horizontal():
-            for key, label in self._hints:
-                yield Static(key.upper(), classes="hint-key")
-                yield Static(label, classes="hint-label")
+            for slot, action, _key_label, action_label in self._slots():
+                yield _KeyBarSlot(str(slot), action, classes="hint-key")
+                yield _KeyBarSlot(action_label, action, classes="hint-label")
+
+    def _slots(self) -> list[tuple[int, str, str, str]]:
+        if self._keymap is None:
+            return [(slot, "", "", "") for slot in range(1, 11)]
+        return self._keymap.key_bar_slots(self._scope)
 
     @property
-    def hints(self) -> list[tuple[str, str]]:
-        return list(self._hints)
+    def keymap(self) -> Keymap | None:
+        return self._keymap
+
+    @property
+    def scope(self) -> str:
+        return self._scope

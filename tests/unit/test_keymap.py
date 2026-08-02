@@ -78,3 +78,49 @@ def test_override_preserves_context_and_label():
     bindings = km.bindings_for_context("panel")
     match = [b for b in bindings if b[1] == "copy"]
     assert match == [("ctrl+c", "copy", "Copy")]
+
+
+def test_override_preserves_slot():
+    """A keybinding override must not silently drop the action's key-bar slot."""
+    km = Keymap(overrides={"copy": "ctrl+c"})
+    slots = km.key_bar_slots("panel")
+    copy_slot = next(s for s in slots if s[1] == "copy")
+    assert copy_slot == (5, "copy", "CTRL+C", "Copy")
+
+
+def test_key_bar_slots_covers_all_ten():
+    km = Keymap()
+    slots = km.key_bar_slots("panel")
+    assert [s[0] for s in slots] == list(range(1, 11))
+
+
+def test_key_bar_slots_assigned_actions_match_default_commands():
+    km = Keymap()
+    slots = {s[0]: s for s in km.key_bar_slots("panel")}
+    expected = {
+        1: "help",
+        3: "view",
+        4: "edit",
+        5: "copy",
+        6: "move",
+        7: "mkdir",
+        8: "delete",
+        10: "quit",
+    }
+    for slot, action in expected.items():
+        assert slots[slot][1] == action
+        assert slots[slot][2] == km.resolve(action).upper()
+        assert slots[slot][3]  # non-empty label
+
+
+def test_key_bar_slots_unassigned_are_empty():
+    km = Keymap()
+    slots = {s[0]: s for s in km.key_bar_slots("panel")}
+    for slot in (2, 9):
+        assert slots[slot] == (slot, "", "", "")
+
+
+def test_key_bar_slots_no_match_for_unknown_context():
+    km = Keymap()
+    slots = km.key_bar_slots("viewer")
+    assert all(action == "" for _slot, action, _key, _label in slots)

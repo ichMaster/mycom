@@ -7,28 +7,33 @@ labels can never drift from actual bindings.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass(frozen=True)
 class Command:
-    """One bindable action: its key(s), the context it applies in, and its label."""
+    """One bindable action: its key(s), the context it applies in, and its label.
+
+    `slot` is the key-bar slot (1-10, FAR's F1-F10 convention) this action
+    occupies in its context, or `None` if it has no key-bar presence.
+    """
 
     action: str
     keys: tuple[str, ...]
     context: str
     label: str
+    slot: int | None = None
 
 
 DEFAULT_COMMANDS: tuple[Command, ...] = (
-    Command("help", ("f1",), "panel", "Help"),
-    Command("view", ("f3",), "panel", "View"),
-    Command("edit", ("f4",), "panel", "Edit"),
-    Command("copy", ("f5",), "panel", "Copy"),
-    Command("move", ("f6",), "panel", "RenMov"),
-    Command("mkdir", ("f7",), "panel", "MkDir"),
-    Command("delete", ("f8",), "panel", "Delete"),
-    Command("quit", ("f10",), "panel", "Quit"),
+    Command("help", ("f1",), "panel", "Help", slot=1),
+    Command("view", ("f3",), "panel", "View", slot=3),
+    Command("edit", ("f4",), "panel", "Edit", slot=4),
+    Command("copy", ("f5",), "panel", "Copy", slot=5),
+    Command("move", ("f6",), "panel", "RenMov", slot=6),
+    Command("mkdir", ("f7",), "panel", "MkDir", slot=7),
+    Command("delete", ("f8",), "panel", "Delete", slot=8),
+    Command("quit", ("f10",), "panel", "Quit", slot=10),
     Command("switch_panel", ("tab",), "panel", "Switch"),
     Command("open", ("enter",), "panel", "Open"),
     Command("go_up", ("backspace", "ctrl+pageup"), "panel", "Up"),
@@ -60,7 +65,7 @@ class Keymap:
             for action, key in overrides.items():
                 cmd = self._commands.get(action)
                 if cmd is not None:
-                    self._commands[action] = Command(cmd.action, (key,), cmd.context, cmd.label)
+                    self._commands[action] = replace(cmd, keys=(key,))
 
     def resolve(self, action: str) -> str | None:
         """Return the primary key sequence bound to an action, if any."""
@@ -90,3 +95,25 @@ class Keymap:
     def all(self) -> dict[str, str]:
         """Return a copy of the primary key for every bound action."""
         return {action: cmd.keys[0] for action, cmd in self._commands.items() if cmd.keys}
+
+    def key_bar_slots(self, context: str) -> list[tuple[int, str, str, str]]:
+        """Return (slot, action, key_label, action_label) for every key-bar
+        slot 1-10 in a context. Unassigned slots are (slot, "", "", "") —
+        empty, not stale (F0.14): the key bar can never show a label that
+        doesn't match a real binding, because it's generated from the same
+        registry that creates the binding.
+        """
+        by_slot: dict[int, Command] = {
+            c.slot: c
+            for c in self._commands.values()
+            if c.context == context and c.slot is not None
+        }
+        result: list[tuple[int, str, str, str]] = []
+        for slot in range(1, 11):
+            cmd = by_slot.get(slot)
+            if cmd is None:
+                result.append((slot, "", "", ""))
+            else:
+                key_label = cmd.keys[0].upper() if cmd.keys else ""
+                result.append((slot, cmd.action, key_label, cmd.label))
+        return result

@@ -90,7 +90,7 @@ class MyComApp(App):
             )
             yield self._left_panel
             yield self._right_panel
-        yield StatusBar()
+        yield StatusBar(keymap=self._keymap, scope="panel")
 
     def on_mount(self) -> None:
         self.active_panel.activate()

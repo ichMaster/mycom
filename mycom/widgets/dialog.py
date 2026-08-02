@@ -10,6 +10,9 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, ProgressBar
 
+from mycom.fileops.engine import CancelToken, OpProgress
+from mycom.utils.fs import format_size
+
 DialogResult = TypeVar("DialogResult")
 
 
@@ -285,3 +288,53 @@ class ProgressDialog(DialogKit[None]):
         # running operation stopped. See OperationProgressDialog for the real
         # Cancel-button affordance used by copy/move/delete (v0.4).
         pass
+
+
+class OperationProgressDialog(DialogKit[None]):
+    """Progress display for copy/move/delete: current file, a total-bytes
+    progress bar, files-done count, speed, ETA, and a Cancel button.
+
+    Progress is reported per plan entry (not per chunk within a file — see
+    mycom.fileops.engine), so this shows one real bar (total bytes across the
+    whole operation) rather than a separate per-file percentage a single
+    large file's entry couldn't fill smoothly anyway.
+
+    Cancel only signals the CancelToken — it does not dismiss the dialog.
+    Chunk-boundary cancellation isn't instant, so the driving worker is the
+    one that dismisses this once execute_plan actually returns. Esc is a
+    deliberate no-op for the same reason as ProgressDialog's.
+    """
+
+    def __init__(
+        self, cancel_token: CancelToken, *, title: str = "", total_bytes: int = 0, **kwargs
+    ) -> None:
+        super().__init__(
+            title=title,
+            buttons=(DialogButton("Cancel", "cancel", hotkey="c", default=True),),
+            cancel_result=None,
+            **kwargs,
+        )
+        self._cancel_token = cancel_token
+        self._total_bytes = max(total_bytes, 1)
+
+    def compose_body(self) -> ComposeResult:
+        yield Label("", id="current-file")
+        yield ProgressBar(total=self._total_bytes, id="total-progress", show_eta=False)
+        yield Label("", id="stats")
+
+    def update_progress(self, progress: OpProgress) -> None:
+        self.query_one("#current-file", Label).update(progress.current_file)
+        self.query_one("#total-progress", ProgressBar).update(progress=progress.bytes_done)
+        speed = f"{format_size(int(progress.speed_bps))}/s"
+        eta = f"{int(progress.eta_seconds)}s" if progress.eta_seconds is not None else "--"
+        self.query_one("#stats", Label).update(
+            f"{format_size(progress.bytes_done)} / {format_size(progress.bytes_total)}"
+            f"   file {progress.files_done}/{progress.files_total}   {speed}   ETA {eta}"
+        )
+
+    def _result_for(self, button_id: str) -> None:
+        return None
+
+    def _activate(self, button_id: str) -> None:
+        # Cancel signals the token but doesn't dismiss — see class docstring.
+        self._cancel_token.cancel()

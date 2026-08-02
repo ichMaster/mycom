@@ -10,13 +10,22 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 
 from mycom.config import GeneralConfig, load_config
+from mycom.fileops import (
+    CancelToken,
+    ConflictTypeMismatchError,
+    OpProgress,
+    build_plan,
+    execute_plan,
+    path_contains,
+)
 from mycom.keymap import Keymap
 from mycom.logging_setup import configure_logging
 from mycom.panels.file_browser import FileBrowserPanel
 from mycom.panels.views import ViewMode
 from mycom.state import PanelState, StateDB
 from mycom.theme import FAR_CLASSIC_THEME
-from mycom.widgets.dialog import InputDialog
+from mycom.widgets.conflict_dialog import ConflictDialogPolicy
+from mycom.widgets.dialog import ErrorDialog, InputDialog, OperationProgressDialog
 from mycom.widgets.header import AppHeader
 from mycom.widgets.status_bar import StatusBar
 
@@ -269,6 +278,90 @@ class MyComApp(App):
             InputDialog(f"{verb} files matching (e.g. *.py;*.md):", default="*"),
             callback=on_dismiss,
         )
+
+    def action_copy(self) -> None:
+        panel = self.active_panel
+        sources = panel.get_selected_files()
+        if not sources:
+            return
+        label = sources[0].name if len(sources) == 1 else f"{len(sources)} files"
+        default_target = self.inactive_panel.current_path
+
+        def on_dismiss(target_text: str | None) -> None:
+            if not target_text:
+                return
+            target_dir = Path(target_text)
+            if self._refuses_copy_target(sources, target_dir):
+                self.push_screen(
+                    ErrorDialog(
+                        "Cannot copy: the destination is the source itself, inside it, "
+                        "or would overwrite it in place."
+                    )
+                )
+                return
+            try:
+                target_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                self.push_screen(ErrorDialog(f"Cannot create {target_dir}: {exc.strerror or exc}"))
+                return
+            self._run_copy(panel, sources, target_dir)
+
+        self.push_screen(
+            InputDialog(f'Copy "{label}" to:', default=str(default_target)),
+            callback=on_dismiss,
+        )
+
+    @staticmethod
+    def _refuses_copy_target(sources: list[Path], target_dir: Path) -> bool:
+        """Refuse copying a source into itself, into its own subdirectory, or
+        onto itself in place (same dir + same name — would truncate the
+        source, see mycom.fileops.engine.copy_entry's same-file guard)."""
+        resolved_target = target_dir.resolve()
+        for src in sources:
+            if path_contains(src, target_dir):
+                return True
+            if src.parent.resolve() == resolved_target:
+                return True
+        return False
+
+    def _run_copy(self, panel: FileBrowserPanel, sources: list[Path], target_dir: Path) -> None:
+        plan = build_plan(sources, target_dir)
+        cancel = CancelToken()
+        conflict_policy = ConflictDialogPolicy(self, target_dir)
+        progress_dialog = OperationProgressDialog(
+            cancel, title=f'Copying to "{target_dir}"', total_bytes=plan.total_bytes
+        )
+        self.push_screen(progress_dialog)
+
+        def on_progress(progress: OpProgress) -> None:
+            self.call_from_thread(progress_dialog.update_progress, progress)
+
+        def worker() -> None:
+            try:
+                execute_plan(plan, cancel, conflict_policy, on_progress)
+            except ConflictTypeMismatchError as exc:
+                self.call_from_thread(self._finish_copy_error, progress_dialog, exc)
+                return
+            self.call_from_thread(self._finish_copy, progress_dialog, panel, sources)
+
+        self.run_worker(worker, thread=True)
+
+    def _finish_copy(
+        self, progress_dialog: OperationProgressDialog, panel: FileBrowserPanel, sources: list[Path]
+    ) -> None:
+        progress_dialog.dismiss(None)
+        self.inactive_panel.refresh_listing()
+        self.active_panel.refresh_listing()
+        panel.deselect(src.name for src in sources)
+
+    def _finish_copy_error(
+        self, progress_dialog: OperationProgressDialog, exc: ConflictTypeMismatchError
+    ) -> None:
+        progress_dialog.dismiss(None)
+        self.push_screen(
+            ErrorDialog(f"Cannot copy: a file exists where a folder is expected at {exc.entry.dst}")
+        )
+        self.inactive_panel.refresh_listing()
 
     def action_resize_grow(self) -> None:
         self._resize_index = min(self._resize_index + 1, len(_RESIZE_STEPS) - 1)

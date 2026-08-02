@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -17,7 +18,7 @@ from mycom.fileops.engine import (
     move_entry,
     same_filesystem,
 )
-from mycom.fileops.plan import build_delete_plan, build_plan
+from mycom.fileops.plan import PlanEntry, build_delete_plan, build_plan
 from mycom.fileops.policy import ConflictChoice
 
 
@@ -59,6 +60,19 @@ def test_copy_entry_recreates_symlink_without_following(tmp_path: Path) -> None:
     copied = dest_dir / "link.txt"
     assert copied.is_symlink()
     assert os.readlink(copied) == str(target)
+
+
+def test_copy_entry_refuses_to_copy_a_file_onto_itself(tmp_path: Path) -> None:
+    """Opening dst in "wb" mode truncates it first — if src and dst resolve
+    to the same file, that would destroy the source before any byte is read."""
+    src = tmp_path / "a.txt"
+    src.write_bytes(b"precious data")
+    entry = PlanEntry(src=src, dst=src, is_dir=False, is_symlink=False, size=13)
+
+    with pytest.raises(shutil.SameFileError):
+        copy_entry(entry, CancelToken())
+
+    assert src.read_bytes() == b"precious data"
 
 
 def test_execute_plan_reports_monotonic_progress(tmp_path: Path) -> None:

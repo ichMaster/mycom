@@ -108,6 +108,26 @@ async def test_get_selected_files_falls_back_to_cursor_when_empty(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_get_selected_files_returns_sorted_order(tmp_path):
+    """A plain set has no reproducible iteration order — file operations
+    (v0.4) process entries in this order, so an arbitrary hash-based order
+    would make cancellation and "which files got processed" unpredictable."""
+    content_dir = tmp_path / "content"
+    content_dir.mkdir()
+    for name in ("zeta.txt", "alpha.txt", "mu.txt"):
+        (content_dir / name).touch()
+
+    app = MyComApp()
+    async with app.run_test() as pilot:
+        app.active_panel.navigate_to(content_dir)
+        await pilot.pause()
+        app.active_panel.select_by_mask("*", True)
+
+        files = app.active_panel.get_selected_files()
+        assert [p.name for p in files] == ["alpha.txt", "mu.txt", "zeta.txt"]
+
+
+@pytest.mark.asyncio
 async def test_deselect_removes_exactly_given_names(tmp_path):
     (tmp_path / "a.txt").touch()
     (tmp_path / "b.txt").touch()

@@ -195,9 +195,15 @@ class FileBrowserPanel(BasePanel):
         return self._current_path
 
     def get_selected_files(self) -> list[Path]:
-        """Selection-else-cursor: the input contract file operations (v0.4) consume."""
+        """Selection-else-cursor: the input contract file operations (v0.4) consume.
+
+        Sorted, not raw `set` iteration order — file operations process
+        entries in this order (see mycom.fileops.plan.build_plan), and an
+        arbitrary hash-based order would make cancellation and "which files
+        got processed" unpredictable from the user's perspective.
+        """
         if self._selected:
-            return [self._current_path / name for name in self._selected]
+            return [self._current_path / name for name in sorted(self._selected)]
         name = self._file_list.selected_name
         if name and name != "..":
             return [self._current_path / name]

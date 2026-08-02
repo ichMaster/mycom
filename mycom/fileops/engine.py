@@ -83,6 +83,10 @@ def copy_entry(entry: PlanEntry, cancel: CancelToken, chunk_size: int = DEFAULT_
         os.makedirs(entry.dst, exist_ok=True)
         shutil.copystat(entry.src, entry.dst)
         return
+    if entry.src.resolve() == entry.dst.resolve():
+        # Opening dst in "wb" mode truncates it before a single byte is
+        # read — if src and dst are the same file, that destroys the source.
+        raise shutil.SameFileError(f"{entry.src} and {entry.dst} are the same file")
     entry.dst.parent.mkdir(parents=True, exist_ok=True)
     with open(entry.src, "rb") as fsrc, open(entry.dst, "wb") as fdst:
         while True:

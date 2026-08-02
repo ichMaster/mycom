@@ -1,6 +1,13 @@
 MyCom — Release History
 =======================
 
+Version 0.1.1 (2026-08-02)
+---------------------------
+- v0.1 Panel core retrofit: data-driven keymap registry, config-wired panels, structured logging
+- Ctrl+U panel swap, cursor-restore-on-up, EACCES/vanished-directory error dialog, resizable panels
+- Brief/Full/Wide view modes
+- FAR sort keys (Ctrl+F3-F6) with header direction glyph
+
 Version 0.1.0 (2026-05-08)
 ---------------------------
 - MC-001: Project scaffold and package structure — uv-managed Python project with hatchling build

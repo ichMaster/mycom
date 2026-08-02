@@ -29,18 +29,39 @@ is the framework's default focus-cycling key.
 | `Ctrl+F4` | `sort_ext` | Sort by extension |
 | `Ctrl+F5` | `sort_mtime` | Sort by modified date |
 | `Ctrl+F6` | `sort_size` | Sort by size |
+| `Insert`, `Space` | `select_toggle` | Toggle the cursor entry's selection, move cursor down |
+| `Plus` (`Alt+=`) | `select_mask` | Select by mask (prompt, default `*`) |
+| `Minus` (`Alt+-`) | `deselect_mask` | Deselect by mask (prompt) |
+| `Asterisk` (`Alt+8`) | `select_invert` | Invert the current selection |
+| `Ctrl+H` | `toggle_hidden` | Toggle hidden-file visibility, both panels |
 | `F10`, `Ctrl+Q` | `quit` | Quit |
 
 Notes:
 
 - Going up (`Backspace`/`Ctrl+PageUp`) restores the cursor onto the directory you just left; if
   that entry is gone, the cursor falls back to the first row.
-- `Ctrl+U` swaps paths and cursor positions only — there is no selection model yet (lands v0.3),
-  so nothing to swap there.
+- `Ctrl+U` swaps paths, cursor positions, **and** each panel's selection.
 - Pressing the active sort key again reverses direction. The panel header shows a `▲`/`▼` glyph
   on the sorted column in Full/Wide modes (Brief has no per-file headers, so no glyph).
-- Resize and view-mode state are in-memory only for v0.1 — they reset on restart until the
-  state DB lands (v0.3) and starts persisting per-panel state.
+- Resize, view-mode, sort, and the hidden toggle persist across restarts as of v0.3 (see
+  [Configuration](configuration.md#persistence)) — no longer in-memory only.
+- The registry's key identifiers for `+`/`-`/`*` are the Textual names `"plus"`/`"minus"`/
+  `"asterisk"`, not the literal symbol characters — binding to the literal symbol silently never
+  matches (confirmed live against a running app; a real gotcha hit while wiring these up).
+
+## Selection
+
+`FileBrowserPanel._selected: set[str]` (bare filenames) is per-panel: `Ins`/`Space` toggle the
+cursor entry and advance (`..` is never selectable); `+`/`-` open an `InputDialog` prompting for a
+`;`/`,`-separated case-insensitive glob-list (`mycom/utils/masks.py::match_any` — a minimal
+subset of what v1.1's shared masks engine will generalize to) and add/remove every match; `*`
+inverts. There's no dedicated select-all key — `+` with its pre-filled default pattern `*` and
+`Enter` selects everything. Selection survives sort/view-mode changes and clears on a successful
+directory navigation. Selected entries render in `$selected-fg` yellow (a literal hex imported
+from `mycom/theme.py`, since Rich markup needs a real color, not a CSS variable) in all three view
+modes. `FileBrowserPanel.get_selected_files()` returns the selection if non-empty, else the
+cursor file — "selection-else-cursor", the contract v0.4's file operations will consume; no
+built-in feature consumes a selection yet.
 
 ## Reserved, not yet functional
 

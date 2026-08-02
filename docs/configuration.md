@@ -8,10 +8,10 @@ Edits take effect at the next start.
 
 | Key | Default | Wired? |
 |-----|---------|--------|
-| `show_hidden` | `false` | Yes — both panels start with hidden files shown/hidden accordingly |
+| `show_hidden` | `false` | Yes — first-run default; once `state.db` has a saved value it wins on later starts (see [Persistence](#persistence)) |
 | `confirm_delete` | `true` | Not yet — arrives with delete (v0.4) |
-| `default_sort` | `"name"` | Yes — `"name"` \| `"extension"` \| `"date"` \| `"size"`; an unrecognized value falls back to `"name"` and logs a `WARNING` |
-| `default_sort_direction` | `"asc"` | Yes — `"asc"` \| `"desc"` |
+| `default_sort` | `"name"` | Yes — `"name"` \| `"extension"` \| `"date"` \| `"size"`; an unrecognized value falls back to `"name"` and logs a `WARNING`. First-run default; `state.db` wins once populated. |
+| `default_sort_direction` | `"asc"` | Yes — `"asc"` \| `"desc"`. First-run default; `state.db` wins once populated. |
 
 ## `[keybindings]`
 
@@ -55,3 +55,20 @@ concern rather than a user preference):
 ```bash
 MYCOM_LOG_LEVEL=DEBUG MYCOM_LOG_FILE=/tmp/mycom.log uv run mycom
 ```
+
+## Persistence
+
+`mycom/state.py::StateDB` — a separate SQLite database (WAL mode) at `~/.config/mycom/state.db`,
+app-owned and never hand-edited (distinct from the user-authored `config.toml` above). Schema is
+versioned with migrations; a corrupt or missing file is recreated silently — startup is never
+blocked by state, and only opening/validating the file counts as "corrupt" (a transient error
+partway through, e.g. a locked database, does **not** wipe existing data).
+
+Restored at startup, per panel: path (with a vanished-path fallback to the nearest existing
+ancestor, then `$HOME`), sort field/direction, view mode. Restored globally: the hidden-files
+toggle, which panel is active, and the panel split. Saves are debounced (~500ms after a
+state-affecting action) and flushed synchronously on quit — a failed final save is logged, never
+crashes the quit.
+
+Deleting `state.db` is always safe: the next start just falls back to `config.toml`'s defaults
+(or built-in defaults if that's absent too).

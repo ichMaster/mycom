@@ -451,6 +451,35 @@ class MyComApp(App):
         )
         self.inactive_panel.refresh_listing()
 
+    def action_mkdir(self) -> None:
+        self._prompt_mkdir(self.active_panel, "")
+
+    def _prompt_mkdir(self, panel: FileBrowserPanel, default: str) -> None:
+        def on_dismiss(name: str | None) -> None:
+            if not name:
+                return
+            target = panel.current_path / name
+            try:
+                target.mkdir(parents=True)
+            except FileExistsError:
+                # Re-open the same prompt, pre-filled, once the error is
+                # dismissed — a retry loop, not a dead end.
+                self.push_screen(
+                    ErrorDialog(f'"{name}" already exists.'),
+                    callback=lambda _: self._prompt_mkdir(panel, name),
+                )
+                return
+            except (OSError, ValueError) as exc:
+                self.push_screen(ErrorDialog(f"Cannot create {target}: {exc}"))
+                return
+            panel.refresh_listing()
+            panel.file_list.select_by_name(name.split("/")[0])
+
+        self.push_screen(
+            InputDialog("Create directory:", default=default),
+            callback=on_dismiss,
+        )
+
     def action_resize_grow(self) -> None:
         self._resize_index = min(self._resize_index + 1, len(_RESIZE_STEPS) - 1)
         self._apply_panel_widths()

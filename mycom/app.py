@@ -115,17 +115,16 @@ class MyComApp(App):
         self._apply_panel_widths()
 
     def action_panel_swap(self) -> None:
-        """Swap both panels' paths and cursor positions (Ctrl+U).
-
-        Selections are not swapped — the selection model doesn't exist yet
-        (lands in v0.3).
-        """
+        """Swap both panels' paths, cursor positions, and selections (Ctrl+U)."""
         left, right = self._left_panel, self._right_panel
         left_path, right_path = left.current_path, right.current_path
         left_cursor = left.file_list.selected_name
         right_cursor = right.file_list.selected_name
+        left_selected, right_selected = left.selected_names, right.selected_names
         left.navigate_to(right_path)
         right.navigate_to(left_path)
+        left.replace_selection(right_selected)
+        right.replace_selection(left_selected)
         if right_cursor is not None:
             left.file_list.select_by_name(right_cursor)
         if left_cursor is not None:
@@ -151,6 +150,9 @@ class MyComApp(App):
 
     def action_sort_size(self) -> None:
         self.active_panel.set_sort("size")
+
+    def action_select_toggle(self) -> None:
+        self.active_panel.toggle_selection_at_cursor()
 
     def action_resize_grow(self) -> None:
         self._resize_index = min(self._resize_index + 1, len(_RESIZE_STEPS) - 1)

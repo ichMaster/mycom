@@ -8,6 +8,7 @@ from textual.widgets import DataTable
 from textual.widgets.data_table import RowDoesNotExist
 
 from mycom.panels.views import FIELD_HEADERS, VIEW_SPECS, ViewMode
+from mycom.theme import SELECTED_FG
 
 _MIN_BRIEF_COLUMN_WIDTH = 22
 _NAME_TRUNCATE_WIDTH = 40
@@ -38,6 +39,17 @@ def _icon(entry: dict) -> str:
     if entry.get("is_dir"):
         return "\\"
     return " "
+
+
+def _bare_name(raw: str) -> str:
+    """Strip a Brief-grid cell's leading icon char, except for the literal ".."."""
+    return raw if raw == ".." else raw[1:]
+
+
+def _highlight_if_selected(text: str, name: str, selected: frozenset[str]) -> str:
+    if name not in selected:
+        return text
+    return f"[{SELECTED_FG}]{text}[/{SELECTED_FG}]"
 
 
 class FileList(DataTable):
@@ -74,6 +86,7 @@ class FileList(DataTable):
         self._brief_names: list[str] = []  # icon+name (or "..") in grid reading order
         self._sort_field: str | None = None
         self._sort_ascending: bool = True
+        self._selected_names: frozenset[str] = frozenset()
         self.cursor_type = "row"
         self.zebra_stripes = False
 
@@ -90,7 +103,7 @@ class FileList(DataTable):
             return
         self._view_mode = mode
         self._rebuild_columns()
-        self.load_directory(self._entries, self._current_path)
+        self.load_directory(self._entries, self._current_path, selected=self._selected_names)
 
     def set_sort_indicator(self, field: str, ascending: bool) -> None:
         """Record the active sort field/direction and refresh header glyphs.
@@ -120,15 +133,25 @@ class FileList(DataTable):
                     label += glyph
                 self.add_column(label, key=field)
 
-    def load_directory(self, entries: list[dict], path: Path) -> None:
+    def load_directory(
+        self,
+        entries: list[dict],
+        path: Path,
+        selected: frozenset[str] | None = None,
+    ) -> None:
         """Load file entries into the table.
 
         Args:
             entries: List of dicts with keys: name, size, modified, permissions, is_dir, is_symlink
             path: The directory path these entries belong to.
+            selected: Names to render highlighted (yellow). `None` keeps whatever
+                was last set (internal reloads from set_view_mode/set_sort_indicator
+                don't have a fresh set to pass and must not silently clear it).
         """
         self._current_path = path
         self._entries = entries
+        if selected is not None:
+            self._selected_names = selected
         if self._view_mode is ViewMode.BRIEF:
             self._load_brief(entries, path)
         else:
@@ -151,6 +174,7 @@ class FileList(DataTable):
                 value = entry.get(field, "")
                 if field == "name":
                     value = truncate_name(str(value), _NAME_TRUNCATE_WIDTH)
+                    value = _highlight_if_selected(value, entry["name"], self._selected_names)
                 cells.append(value)
             self.add_row(*cells, key=entry["name"])
 
@@ -169,7 +193,12 @@ class FileList(DataTable):
             cells = []
             for c in range(cols):
                 idx = r * cols + c
-                cell = truncate_name(names[idx], _BRIEF_TRUNCATE_WIDTH) if idx < len(names) else ""
+                if idx < len(names):
+                    raw = names[idx]
+                    cell = truncate_name(raw, _BRIEF_TRUNCATE_WIDTH)
+                    cell = _highlight_if_selected(cell, _bare_name(raw), self._selected_names)
+                else:
+                    cell = ""
                 cells.append(cell)
             self.add_row(*cells)
 
@@ -187,8 +216,7 @@ class FileList(DataTable):
             idx = row * self._brief_columns + col
             if not (0 <= idx < len(self._brief_names)):
                 return None
-            raw = self._brief_names[idx]
-            return raw if raw == ".." else raw[1:]
+            return _bare_name(self._brief_names[idx])
         row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
         return str(row_key.value) if row_key.value is not None else None
 
@@ -199,8 +227,7 @@ class FileList(DataTable):
         if self._view_mode is ViewMode.BRIEF:
             idx = 0
             for i, raw in enumerate(self._brief_names):
-                candidate = raw if raw == ".." else raw[1:]
-                if candidate == name:
+                if _bare_name(raw) == name:
                     idx = i
                     break
             cols = self._brief_columns

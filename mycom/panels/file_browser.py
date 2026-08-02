@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 
 from textual.app import ComposeResult
@@ -62,6 +63,7 @@ class FileBrowserPanel(BasePanel):
         self._sort_field = sort_field
         self._sort_ascending = sort_ascending
         self._filter_text = ""
+        self._selected: set[str] = set()
 
     def compose(self) -> ComposeResult:
         yield self._path_bar
@@ -80,7 +82,12 @@ class FileBrowserPanel(BasePanel):
 
     def _update_footer(self) -> None:
         count = len(self._entries)
-        text = f"{count} item{'s' if count != 1 else ''}  0 selected"
+        text = f"{count} item{'s' if count != 1 else ''}  "
+        if self._selected:
+            total_bytes = sum(e.size for e in self._entries if e.name in self._selected)
+            text += f"{len(self._selected)} selected ({format_size(total_bytes)})"
+        else:
+            text += "0 selected"
         name = self._file_list.selected_name
         if name:
             text += f"  {name}"
@@ -124,7 +131,9 @@ class FileBrowserPanel(BasePanel):
             }
             for e in sorted_entries
         ]
-        self._file_list.load_directory(display_entries, self._current_path)
+        self._file_list.load_directory(
+            display_entries, self._current_path, selected=frozenset(self._selected)
+        )
         self._path_bar.path = self._current_path
         self._update_footer()
 
@@ -153,6 +162,7 @@ class FileBrowserPanel(BasePanel):
             return
         self._current_path = target
         self._entries = entries
+        self._selected.clear()
         self._render_entries()
 
     def navigate_up(self) -> None:
@@ -173,10 +183,46 @@ class FileBrowserPanel(BasePanel):
         return self._current_path
 
     def get_selected_files(self) -> list[Path]:
+        """Selection-else-cursor: the input contract file operations (v0.4) consume."""
+        if self._selected:
+            return [self._current_path / name for name in self._selected]
         name = self._file_list.selected_name
         if name and name != "..":
             return [self._current_path / name]
         return []
+
+    def deselect(self, names: Iterable[str]) -> None:
+        """Remove the given names from the selection (operations call this on success)."""
+        for name in names:
+            self._selected.discard(name)
+        self._render_entries()
+
+    @property
+    def selected_names(self) -> frozenset[str]:
+        return frozenset(self._selected)
+
+    def replace_selection(self, names: Iterable[str]) -> None:
+        """Overwrite the selection outright (e.g. Ctrl+U swapping it between panels)."""
+        self._selected = set(names)
+        self._render_entries()
+
+    def toggle_selection_at_cursor(self) -> None:
+        """Ins/Space: toggle the cursor entry's selection and move the cursor down."""
+        name = self._file_list.selected_name
+        if name is None:
+            return
+        if name != "..":
+            if name in self._selected:
+                self._selected.discard(name)
+            else:
+                self._selected.add(name)
+        # Determine the next cursor target from the current (pre-rerender) layout,
+        # then restore it by name after _render_entries() rebuilds the table.
+        self._file_list.action_cursor_down()
+        next_name = self._file_list.selected_name
+        self._render_entries()
+        if next_name:
+            self._file_list.select_by_name(next_name)
 
     @property
     def file_list(self) -> FileList:

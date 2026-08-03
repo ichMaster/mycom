@@ -138,7 +138,15 @@ class EditorScreen(Screen[None]):
 
     def _write(self, path: Path) -> bool:
         try:
-            path.write_text(self._serialize(), encoding="utf-8")
+            # newline="" disables Python's universal-newline translation on
+            # write (which replaces "\n" with os.linesep) — without it, text
+            # this code has already converted to CRLF via apply_eol would
+            # have its embedded "\n"s translated *again* on any platform
+            # where os.linesep != "\n" (code review #3; currently inert on
+            # POSIX, where os.linesep == "\n" makes the translation a
+            # no-op, but not a portable guarantee for a byte-for-byte
+            # round-trip contract).
+            path.write_text(self._serialize(), encoding="utf-8", newline="")
         except OSError as exc:
             self.app.push_screen(ErrorDialog(f"Cannot save: {exc}"))
             return False

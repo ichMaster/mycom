@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import string
+from pathlib import Path
 
 import pytest
 
@@ -97,6 +98,33 @@ async def test_crlf_round_trip_with_no_edits_produces_byte_identical_save(tmp_pa
         await pilot.press("f2")
         await pilot.pause()
         assert p.read_bytes() == original
+
+
+@pytest.mark.asyncio
+async def test_save_writes_with_newline_empty_to_avoid_double_translation(tmp_path, monkeypatch):
+    """Code review #3: without newline="", Python's universal-newline
+    write-mode translation would replace every embedded "\\n" (including
+    ones already inside a CRLF pair from apply_eol) with os.linesep on any
+    platform where os.linesep != "\\n" — currently inert on POSIX (where
+    os.linesep == "\\n" makes it a no-op) but not a portable guarantee.
+    Asserts the call contract directly rather than only the POSIX-incidental
+    output the CRLF round-trip test above already covers."""
+    calls = []
+    real_write_text = Path.write_text
+
+    def spy_write_text(self, *args, **kwargs):
+        calls.append(kwargs.get("newline"))
+        return real_write_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", spy_write_text)
+
+    app = MyComApp()
+    async with app.run_test() as pilot:
+        await _open_editor(pilot, app, tmp_path, b"one\r\ntwo\r\n")
+        await pilot.press("f2")
+        await pilot.pause()
+
+    assert calls == [""]
 
 
 @pytest.mark.asyncio

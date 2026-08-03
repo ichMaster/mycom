@@ -52,6 +52,16 @@ class ViewerScreen(Screen[str | None]):
 
     def __init__(self, path: Path, keymap: Keymap) -> None:
         super().__init__()
+        # Modal *only* w.r.t. Textual's own key-binding resolution (not
+        # visually — this is a full screen, not a centered dialog):
+        # `Screen._modal_binding_chain` truncates the binding chain at the
+        # first modal node, so a key this screen doesn't recognize can no
+        # longer fall through to MyComApp's panel-level bindings underneath
+        # (code review #1) — confirmed empirically the naive fix (stopping
+        # every Key *message* unconditionally in on_key) breaks bindings
+        # too, since `App._on_key`'s _check_bindings only runs at all if the
+        # message reaches the App unstopped.
+        self._modal = True
         self._path = path
         self._keymap = keymap
         self._buffer = ViewerBuffer(path)

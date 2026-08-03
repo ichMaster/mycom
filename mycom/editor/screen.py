@@ -59,6 +59,17 @@ class EditorScreen(Screen[None]):
         trailing_newline: bool,
     ) -> None:
         super().__init__()
+        # Modal *only* w.r.t. Textual's own key-binding resolution (not
+        # visually — this is a full screen, not a centered dialog):
+        # `Screen._modal_binding_chain` truncates the binding chain at the
+        # first modal node, so a key this screen doesn't recognize can no
+        # longer fall through to MyComApp's panel-level bindings underneath
+        # (code review #1) — confirmed empirically the naive fix (stopping
+        # every Key *message* unconditionally in on_key) broke the
+        # TextArea's own Ctrl+Z/Ctrl+Y/F6/F7 bindings too, since those are
+        # ALSO resolved only when the message reaches App._on_key unstopped
+        # (TextArea itself doesn't special-case them in its own _on_key).
+        self._modal = True
         self._path = path
         self._keymap = keymap
         self._eol = eol

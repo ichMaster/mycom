@@ -1,6 +1,17 @@
 MyCom — Release History
 =======================
 
+Version 0.6.1 (2026-08-03)
+---------------------------
+- HARDEN sweep (end of the v0.1-v0.6 run): fixed the one outstanding deferred MEDIUM finding
+  (v0.3 code review #2) — selection is keyed by bare filename only, so refresh_listing() (e.g.
+  Ctrl+H, or after an external command completes) now drops a selected name whose entry
+  (is_dir, size, modified) changed since the last refresh, closing the gap where an external
+  process replacing a selected file with an unrelated same-named file left the new file
+  silently selected
+- No HIGH findings were outstanding anywhere in the run; all LOW findings remain deferred to
+  their documented homes (v1.2, v1.3, polish backlog)
+
 Version 0.6.0 (2026-08-03)
 ---------------------------
 - Viewer (F3): read-only, instant open at any file size — windowed/mmap-backed, never loads a

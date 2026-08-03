@@ -1,6 +1,19 @@
 MyCom — Release History
 =======================
 
+Version 0.5.0 (2026-08-03)
+---------------------------
+- Command line: a prompt under the panels always shows the active panel's directory; typing
+  routes there (not an in-panel filter); cd (quoted paths, ~, bare cd) is intercepted with no
+  subprocess spawned, relative targets resolve against the active panel's shown directory
+- Execution: anything else runs in a real PTY via App.suspend() — the app hands over the whole
+  terminal, so vim, htop, and git rebase -i all get genuine full-screen control; output tees into
+  a bounded (100k-line) ring buffer; on return, "Press any key" (skipped when silent) and
+  "Exit code: N" for a non-zero exit, then both panels refresh
+- Ctrl+O recalls the last command's output in a scrollable view; nothing re-executes
+- Code review fix: widened a pre-existing (v0.4) cancellation test's timing margin after it was
+  observed flaking under load
+
 Version 0.4.0 (2026-08-03)
 ---------------------------
 - File operations: Copy/Move (F5/F6) — same-filesystem move is an instant rename(), cross-device

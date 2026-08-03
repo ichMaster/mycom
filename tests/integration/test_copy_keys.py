@@ -315,7 +315,7 @@ async def test_f5_cancel_button_mid_copy_leaves_source_intact(tmp_path, monkeypa
 
     def delayed_execute_plan(plan, cancel, conflict_policy, on_progress, **kwargs):
         def slow_on_progress(progress):
-            time.sleep(0.03)
+            time.sleep(0.05)
             on_progress(progress)
 
         return real_execute_plan(plan, cancel, conflict_policy, slow_on_progress, **kwargs)
@@ -336,7 +336,10 @@ async def test_f5_cancel_button_mid_copy_leaves_source_intact(tmp_path, monkeypa
         await pilot.pause()
 
         await _wait_until(pilot, lambda: len(app.screen_stack) == 2)
-        await asyncio.sleep(0.1)  # let a few entries complete (30ms delay each)
+        await asyncio.sleep(0.2)  # let a few entries complete (50ms delay each);
+        # wide margin vs. the worst case (20 * 50ms = 1000ms to finish all of
+        # them) so a slow click dispatch under system load can't flake this —
+        # see v0.5 code review #1, observed flaking with a 30ms/0.1s margin.
         await pilot.click("#cancel")
         await _wait_until(pilot, lambda: len(app.screen_stack) == 1, timeout=10.0)
 

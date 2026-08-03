@@ -68,8 +68,15 @@ cursor entry and advance (`..` is never selectable); `+`/`-` open an `InputDialo
 `;`/`,`-separated case-insensitive glob-list (`mycom/utils/masks.py::match_any` — a minimal
 subset of what v1.1's shared masks engine will generalize to) and add/remove every match; `*`
 inverts. There's no dedicated select-all key — `+` with its pre-filled default pattern `*` and
-`Enter` selects everything. Selection survives sort/view-mode changes and clears on a successful
-directory navigation. Selected entries render in `$selected-fg` yellow (a literal hex imported
+`Enter` selects everything. Selection survives sort/view-mode changes and in-place refreshes
+(`refresh_listing()` — e.g. `Ctrl+H`, or after an external command completes), and clears on a
+successful directory navigation. Since selection is keyed by bare filename with no inode/identity
+field to check (`FileEntry` carries none — adding one would be a seam change), `refresh_listing()`
+reconciles it against the fresh listing on every call: a selected name whose `(is_dir, size,
+modified)` changed between the old and new entries is dropped (`_reconcile_selection`, hardened
+after v0.3's code review, fixed at the end of the v0.6 run) — an external process replacing a
+selected file with an unrelated same-named one no longer leaves the new file silently selected.
+Selected entries render in `$selected-fg` yellow (a literal hex imported
 from `mycom/theme.py`, since Rich markup needs a real color, not a CSS variable) in all three view
 modes. `FileBrowserPanel.get_selected_files()` returns the selection if non-empty, else the
 cursor file — "selection-else-cursor", sorted (not raw `set` order, so multi-file operation

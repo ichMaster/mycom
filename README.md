@@ -106,7 +106,9 @@ directory shows an error dialog instead of a silent empty panel.
 `Ins`/`Space` toggle the cursor entry and advance; `..` can never be selected. Selected rows
 render in yellow. Mask select/deselect (`+`/`-`) prompt for a pattern (default `*`, so `+` then
 `Enter` selects everything); `*` inverts the current selection. Selection is per-panel, survives
-sort/view-mode changes, and clears when you navigate to a different directory. It's the input
+sort/view-mode changes and refreshes, and clears when you navigate to a different directory. If a
+selected file is replaced on disk by something else under the same name between refreshes, it's
+dropped from the selection rather than silently carrying over to the new file. It's the input
 file operations act on: selection-else-cursor (act on the selection if there is one, else the
 cursor entry).
 

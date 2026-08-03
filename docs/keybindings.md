@@ -38,6 +38,9 @@ Textual routes to the command line instead of the panel — see
 | `Asterisk` (`Alt+8`) | `select_invert` | Invert the current selection |
 | `Ctrl+H` | `toggle_hidden` | Toggle hidden-file visibility, both panels |
 | `Ctrl+O` | `toggle_console` | Recall the last command's output |
+| `F3` | `view` | Open the cursor file read-only in the viewer |
+| `F4` | `edit` | Open the cursor file in the editor (or `$EDITOR`, see below) |
+| `Alt+F4` | `edit_external` | Open the cursor file in `$EDITOR`, always |
 | `F5` | `copy` | Copy selection-else-cursor to a prompted target directory |
 | `F6` | `move` | Move selection-else-cursor to a prompted target directory |
 | `Shift+F6` | `rename` | Rename the cursor entry in place, stem pre-selected |
@@ -152,20 +155,78 @@ same shape as `fileops/` — that `mycom/widgets/command_line.py`'s `CommandLine
 - **`Ctrl+O`** shows the ring buffer's current text in a scrollable screen ("No output yet" if
   nothing has run this session) — pure recall, nothing re-executes.
 
-## Reserved, not yet functional
+## Viewer (v0.6)
 
-`F1` (`help`), `F3` (`view`), `F4` (`edit`) are already declared in the keymap registry —
-pressing them is a safe no-op today. They gain handlers with the viewer/editor (v0.6) and the AI
-palette (v0.7).
+`mycom/viewer/` (`buffer.py`, `screen.py`) — `ViewerBuffer` is a pure, mmap-backed engine (same
+shape as `fileops`/`console`): it never indexes or loads a file whole, only scanning the byte
+range a requested window needs, so a multi-gigabyte file opens and jumps to `End` in well under
+300ms with bounded resident memory. `ViewerScreen` wires it into a real, full-screen (not modal)
+`Screen`:
+
+- **`F3`** opens the active panel's cursor file (a no-op on a directory); `F3`/`F10`/`Esc` all
+  close it back to the panels.
+- **Navigation** (arrows, `PgUp`/`PgDn`, `Home`/`End`) tracks position by *file offset*, never a
+  line index — `F2`'s wrap toggle changes how many file-lines fit on screen, and offset-tracking
+  is what lets it preserve the exact line you were looking at across the toggle.
+- **`F6`** dismisses the viewer with an `"edit"` sentinel result; `MyComApp`'s callback
+  interprets that and opens the same file in the editor at the top of file — the viewer never
+  imports the editor module directly, avoiding a forward reference between the two.
+- A file modified on disk while it's open in the viewer keeps working (a stale mmap window is
+  explicitly acceptable — no live-reload in v0).
+
+## Editor (v0.6)
+
+`mycom/editor/` (`detect.py`, `screen.py`) — `detect.py` is pure logic: `detect_eol` (LF/CRLF,
+including a mixed file's dominant direction with ties favoring LF), `has_trailing_newline`,
+`apply_eol` (re-applies the detected style on save), `is_binary`/`too_large` (an 8KB-probe
+heuristic and a 10MB cap), and `read_text`, which raises `NotEditableError(reason="binary"|
+"too_large")` rather than ever silently mis-decoding. `EditorScreen` wraps a Textual `TextArea`
+(`tab_behavior="focus"` — required for `F2`/`Shift+F2`/`F10`/`Esc` to reach the screen at all; the
+`"indent"` variant's own key handling special-cases `Escape` to move focus instead of letting it
+bubble):
+
+- **`F4`** calls `read_text` first; a `NotEditableError` redirects to the viewer with a notice
+  instead of ever loading the file. Undo/redo is `TextArea`'s own built-in `Ctrl+Z`/`Ctrl+Y`
+  stack — no custom code needed.
+- **`F2`** saves; EOL and trailing-newline state are explicitly re-applied (not left to
+  incidental round-trip behavior), and the write passes `newline=""` so Python's own universal-
+  newline translation can't double-convert text already converted to CRLF.
+- **`Shift+F2`** saves as and continues editing the new path; the original file is untouched.
+- **`F10`/`Esc`** close; a modified buffer always prompts Save/Discard/Cancel
+  (`SaveDiscardCancelDialog`, a three-button `DialogKit` subclass — `ConfirmDialog`'s Yes/No is
+  ambiguous between "discard" and "stay"). An unmodified buffer closes immediately.
+- **The external-change guard**: the file's mtime is recorded at open and re-checked before every
+  write (both `F2` and the close-guard's Save choice); a mismatch warns before overwriting —
+  declining loses nothing on either side, in memory or on disk.
+- **`Alt+F4`** (`edit_external`) hands the cursor file straight to `$EDITOR` (shell-word-split,
+  so `EDITOR="code --wait"` works correctly; falls back to `vi`) via `App.suspend()` — the same
+  mechanism the command line uses, not the PTY-tee machinery that exists to *capture* output this
+  doesn't need to capture. `[editor] external_default = true` in `config.toml` makes plain `F4`
+  do this too.
+
+**Input isolation:** both `ViewerScreen` and `EditorScreen` set `self._modal = True` in
+`__init__` — not to look like a dialog (they're still full-screen), but because
+`Screen._modal_binding_chain` truncates Textual's key-binding resolution at the first modal node
+it finds. Without it, a key neither screen recognizes (e.g. `Ctrl+O`, bound to `toggle_console` at
+the panel level) bubbles past them and fires the panel-level action underneath while the
+viewer/editor still looks like it's in control (code review #1, v0.6). A tempting-looking
+alternative — stopping every `Key` message unconditionally in `on_key` — was tried and reverted:
+it also silently broke `TextArea`'s own `Ctrl+Z`/`Ctrl+Y`/`F6`/`F7` bindings, since those resolve
+via `App._on_key`'s binding check, which only runs once a key message reaches the App unstopped.
 
 ## Key bar
 
 `mycom/widgets/status_bar.py`'s `StatusBar` renders the ten F1-F10 slots from
-`Keymap.key_bar_slots("panel")` — each `Command` in the registry declares a `slot: int | None`
+`Keymap.key_bar_slots(scope)` — each `Command` in the registry declares a `slot: int | None`
 (FAR's F1-F10 convention; `None` for actions with no key-bar presence, e.g. `switch_panel` or the
-sort/view/resize keys). A slot with no assigned action renders empty rather than a stale label.
-Clicking a slot calls `App.run_action` with the same action name its key would — currently a
-no-op for the reserved actions above, exactly like pressing the key itself.
+sort/view/resize keys) **and** a `context` (`"panel"`, `"viewer"`, or `"editor"`). Each screen
+constructs its own `StatusBar` with the matching `scope`, so the key bar's labels always match
+what's actually open — panel labels never bleed into the viewer/editor and vice versa. A slot
+with no assigned action in its context renders empty rather than a stale label. Clicking a slot
+calls `App.run_action` with the same action name its key would; this only resolves for actions
+`MyComApp` itself defines (every panel action, plus `F1`'s still-reserved no-op) — a viewer/editor
+slot click currently has no click-target method on the App and is a silent no-op, same as any
+other unmapped action name (`App.run_action` logs and returns `False` rather than raising).
 
 ## Dialogs
 

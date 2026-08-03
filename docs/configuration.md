@@ -19,6 +19,12 @@ Overrides any action name declared in the keymap registry — see
 [Key Bindings](keybindings.md#overriding-a-binding). An override for an unknown action name is
 ignored.
 
+## `[editor]`
+
+| Key | Default | Wired? |
+|-----|---------|--------|
+| `external_default` | `false` | Yes (v0.6) — `true` makes plain `F4` always hand the cursor file to `$EDITOR` (via `App.suspend()`) instead of opening MyCom's own built-in editor; `Alt+F4` does this unconditionally regardless of this setting — see [Editor](keybindings.md#editor-v06) |
+
 ## `[llm]`
 
 Not yet used — reserved for the AI command palette (v0.7).
@@ -38,6 +44,9 @@ default_sort_direction = "desc"
 [keybindings]
 copy = "ctrl+c"
 quit = "ctrl+q"
+
+[editor]
+external_default = true
 ```
 
 ## Logging

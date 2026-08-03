@@ -2,7 +2,7 @@
 
 This folder documents the **actual, implemented code** — not the design.
 
-## Status: v0.5 — Command line, execution, cd-sync
+## Status: v0.6 — Viewer and editor
 
 Dual panels navigate the filesystem with a data-driven keymap registry: Tab/Enter/Backspace
 navigation, `Ctrl+U` panel swap (paths, cursor, **and selection**), cursor-restore on going up, an
@@ -36,12 +36,21 @@ else runs in a real PTY — the app hands over the whole terminal, so `vim`, `ht
 `Ctrl+O` recalls afterward. See
 [Key Bindings](keybindings.md#command-line-and-console-v05) for the full behavior.
 
-See [Key Bindings](keybindings.md) (incl. selection, file operations, the command line/console,
-the key bar, and the dialog keyboard model) and [Configuration](configuration.md) (incl.
-persistence).
+`F3` opens the cursor file in a read-only viewer that's instant at any size — windowed/mmap-backed,
+it never loads a file whole, so a multi-gigabyte log opens and jumps to `End` as fast as a one-line
+file. `F4` opens it in a `TextArea`-based editor with full undo/redo, EOL and trailing-newline
+preservation on save, a Save/Discard/Cancel guard on a dirty quit, and a warning before overwriting
+a file that changed on disk since it was opened; a binary or oversized file redirects to the viewer
+instead. `Alt+F4` (or `[editor] external_default` in config) hands the file to `$EDITOR` instead,
+the same `App.suspend()` mechanism the command line uses. See
+[Key Bindings](keybindings.md#viewer-v06) for the full behavior.
 
-The viewer/editor, the AI command palette, and Claude Code integration are not built yet — see
-`spec/roadmap.md` for what ships in which phase.
+See [Key Bindings](keybindings.md) (incl. selection, file operations, the command line/console,
+the viewer/editor, the key bar, and the dialog keyboard model) and [Configuration](configuration.md)
+(incl. persistence).
+
+The AI command palette and Claude Code integration are not built yet — see `spec/roadmap.md` for
+what ships in which phase.
 
 As later roadmap phases ship, this section (and its pages) are updated to describe what
 actually exists at that point — never what's planned.

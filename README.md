@@ -31,8 +31,13 @@ Built with Python and Textual.
                               thread, live progress, Cancel, a six-choice conflict dialog
     Command line & console   type to run a shell command in a real PTY (vim/htop work); cd
                               intercepted with no subprocess; Ctrl+O recalls the last output
-    Viewer, editor, AI palette, Claude Code integration — coming in later v0 phases
-                              (see spec/roadmap.md)
+    Viewer (F3)              instant open at any size (windowed, never loads a file whole),
+                              wrap toggle, F6 hands off to the editor
+    Editor (F4)              TextArea-based, undo/redo, EOL and trailing-newline preserved on
+                              save, a modified-close guard, an external-change guard, binary/
+                              oversized files redirect to the viewer; Alt+F4 (or config) opens
+                              $EDITOR instead
+    AI palette, Claude Code integration — coming in later v0 phases (see spec/roadmap.md)
 
 
 ## Requirements
@@ -81,6 +86,14 @@ overridden in `config.toml` under `[keybindings]` — see Configuration below.
  Shift+F6       Rename (in place)                      default "*" selects all
  F7             Mkdir                  - (Alt+-)      Deselect by mask
  F8             Delete                 * (Alt+8)      Invert selection
+
+ Viewer (F3)                           Editor (F4)
+ ──────────────────────────────        ──────────────────────────────
+ ↑/↓, PgUp/PgDn Scroll by line/page    F2             Save
+ Home/End       Jump to start/end      Shift+F2       Save as
+ F2             Toggle wrap            F10, Esc       Quit (prompts if modified)
+ F6             Open in editor         Alt+F4         Open in $EDITOR instead
+ F3, F10, Esc   Quit
 ```
 
 Going up restores the cursor onto the directory you just left. Pressing the active sort key
@@ -97,8 +110,8 @@ sort/view-mode changes, and clears when you navigate to a different directory. I
 file operations act on: selection-else-cursor (act on the selection if there is one, else the
 cursor entry).
 
-`F1` (help), `F3` (view), and `F4` (edit) are already bound in the keymap registry but have no
-handler yet — they arrive with the AI palette (v0.7) and the viewer/editor (v0.6).
+`F1` (help) is already bound in the keymap registry but has no handler yet — it arrives with the
+AI command palette (v0.7).
 
 ### File Operations
 
@@ -157,6 +170,32 @@ refresh — an external command can change either side.
 `Ctrl+O` recalls the last command's output (or "No output yet") without re-running anything; any
 key returns to the panels.
 
+### Viewer
+
+`F3` opens the cursor file read-only, instantly at any size — it's windowed (mmap-backed) and
+never loads a file whole, so a multi-gigabyte log opens and jumps to `End` just as fast as a
+one-line file. Arrows/`PgUp`/`PgDn`/`Home`/`End` scroll by line or page; `F2` toggles line wrap,
+preserving your position exactly (tracked by file offset, not by on-screen row, so re-wrapping
+never loses your place). `F6` switches to the editor on the same file, at the top. `F3`, `F10`, or
+`Esc` closes back to the panels. A file modified on disk while you're viewing it keeps working — a
+stale window is fine, it just won't live-update.
+
+### Editor
+
+`F4` opens the cursor file in a `TextArea`-based editor with full undo/redo (`Ctrl+Z`/`Ctrl+Y`).
+`F2` saves, `Shift+F2` saves as (and keeps editing the new path). Line endings (LF/CRLF, including
+a mixed file's dominant style) and the presence or absence of a trailing newline are detected on
+open and preserved byte-for-byte on save — editing a CRLF file never turns into a wall of spurious
+diff noise. Quitting with unsaved changes always asks: Save / Discard / Cancel. If the file was
+changed on disk by something else since you opened it, saving warns before overwriting — declining
+loses nothing on either side, in memory or on disk. A binary file, or one over 10 MB, opens in the
+viewer instead (UTF-8 text only, capped size — a deliberate scope boundary, not a bug).
+
+`Alt+F4` skips MyCom's own editor and hands the cursor file straight to `$EDITOR` (falling back to
+`vi`), suspending the app exactly like running a shell command does — real full-screen control,
+same as the command line. Setting `external_default = true` under `[editor]` in `config.toml`
+makes plain `F4` do this too, for anyone who'd rather always use their own editor.
+
 ### Sorting
 
 ```
@@ -191,6 +230,9 @@ copy = "f5"
 move = "f6"
 delete = "f8"
 quit = "f10"
+
+[editor]
+external_default = false        # true: plain F4 always opens $EDITOR instead of the built-in editor
 
 [llm]
 api_key_env = "ANTHROPIC_API_KEY"

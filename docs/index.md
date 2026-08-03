@@ -2,7 +2,7 @@
 
 This folder documents the **actual, implemented code** — not the design.
 
-## Status: v0.4 — File operations
+## Status: v0.5 — Command line, execution, cd-sync
 
 Dual panels navigate the filesystem with a data-driven keymap registry: Tab/Enter/Backspace
 navigation, `Ctrl+U` panel swap (paths, cursor, **and selection**), cursor-restore on going up, an
@@ -29,11 +29,19 @@ dialog on a name collision — same-filesystem moves and renames are an instant 
 cross-device move only deletes the source once the copy is verified. See
 [Key Bindings](keybindings.md#file-operations-v04) for the full behavior.
 
-See [Key Bindings](keybindings.md) (incl. selection, file operations, the key bar, and the dialog
-keyboard model) and [Configuration](configuration.md) (incl. persistence).
+A command-line prompt under the panels always shows the active panel's directory: typing routes
+there (not to an in-panel filter), `cd` is intercepted with no subprocess spawned, and anything
+else runs in a real PTY — the app hands over the whole terminal, so `vim`, `htop`, and
+`git rebase -i` all get genuine full-screen control, with output teed into a bounded ring buffer
+`Ctrl+O` recalls afterward. See
+[Key Bindings](keybindings.md#command-line-and-console-v05) for the full behavior.
 
-The command line/console, the viewer/editor, the AI command palette, and Claude Code integration
-are not built yet — see `spec/roadmap.md` for what ships in which phase.
+See [Key Bindings](keybindings.md) (incl. selection, file operations, the command line/console,
+the key bar, and the dialog keyboard model) and [Configuration](configuration.md) (incl.
+persistence).
+
+The viewer/editor, the AI command palette, and Claude Code integration are not built yet — see
+`spec/roadmap.md` for what ships in which phase.
 
 As later roadmap phases ship, this section (and its pages) are updated to describe what
 actually exists at that point — never what's planned.

@@ -2,7 +2,7 @@
  ╔══════════════════════════════════════════════════════════╗
  ║                        MyCom                            ║
  ║        Dual-Panel File Manager for the Terminal         ║
- ║                      v0.4.0                             ║
+ ║                      v0.5.0                             ║
  ╚══════════════════════════════════════════════════════════╝
 ```
 
@@ -21,7 +21,6 @@ Built with Python and Textual.
     Hidden files toggle      Ctrl+H, global, cursor-preserving
     Persistence               panel paths/sort/view and hidden toggle survive a restart (SQLite,
                               WAL); a vanished saved path falls back gracefully
-    Quick filter             type to filter files in real-time
     Far classic theme        one palette file drives every color; renders on truecolor and
                               256-color terminals
     Dialog kit                keyboard-navigable modals: Tab/arrows/hotkeys/Enter/Esc, stackable
@@ -30,7 +29,9 @@ Built with Python and Textual.
     File operations          Copy/Move (F5/F6, same-FS instant rename, cross-device verified
                               copy+delete), Mkdir (F7), Delete (F8), Rename (Shift+F6) — worker
                               thread, live progress, Cancel, a six-choice conflict dialog
-    Console, viewer, editor, AI palette, Claude Code integration — coming in later v0 phases
+    Command line & console   type to run a shell command in a real PTY (vim/htop work); cd
+                              intercepted with no subprocess; Ctrl+O recalls the last output
+    Viewer, editor, AI palette, Claude Code integration — coming in later v0 phases
                               (see spec/roadmap.md)
 
 
@@ -71,7 +72,7 @@ overridden in `config.toml` under `[keybindings]` — see Configuration below.
  Backspace      Go to parent dir       Ctrl+1 / 2 / 3  View: Brief / Full / Wide
  Ctrl+PgUp      Go to parent (alias)   Ctrl+F3 / F4    Sort: name / extension
  Ctrl+H         Toggle hidden files    Ctrl+F5 / F6    Sort: date / size
- F10, Ctrl+Q    Quit
+ Ctrl+O         Recall last output     F10, Ctrl+Q     Quit
 
  File operations                       Selection
  ──────────────────────────────        ──────────────────────────────
@@ -141,10 +142,20 @@ panel footer shows the item count, the live selection count and total size (`0 s
 empty), and the cursor row's full name. The passive panel's footer additionally shows a
 free-space placeholder (not real disk-usage data yet).
 
-### Quick Filter
+### Command Line & Console
 
-Start typing to filter files in real-time (case-insensitive).
-Press Escape to clear, Enter to navigate to the selected entry.
+A prompt under the panels always shows the active panel's directory. Typing any character not
+claimed by a panel keybinding goes straight there (FAR behavior) — press `Enter` to run it.
+
+`cd <path>` (quoted paths and `~` supported, bare `cd` goes home) is intercepted and applied
+directly to the active panel — no subprocess. Anything else runs in a real PTY: the app hands
+over the whole terminal, so interactive programs (`vim`, `htop`, `git rebase -i`) get full
+control exactly as they would in a normal shell. When the command exits, `Press any key` is shown
+(skipped if it printed nothing) along with `Exit code: N` for a non-zero exit, then both panels
+refresh — an external command can change either side.
+
+`Ctrl+O` recalls the last command's output (or "No output yet") without re-running anything; any
+key returns to the panels.
 
 ### Sorting
 

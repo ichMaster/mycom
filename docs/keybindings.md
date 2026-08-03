@@ -9,7 +9,10 @@ too — so labels can never drift from actual bindings.
 Three actions (`switch_panel`, `open`, `go_up`) are handled in `MyComApp.on_key` instead of
 `App.bind`, because they must intercept the key before Textual's own widget-level bindings see
 it — the focused `DataTable` already claims `enter` for its own cursor-select action, and `Tab`
-is the framework's default focus-cycling key.
+is the framework's default focus-cycling key. `on_key` also has a fourth, non-action branch
+(v0.5): any key that reaches it *not* claimed by a keymap action and classified `is_printable` by
+Textual routes to the command line instead of the panel — see
+[Command line and console](#command-line-and-console-v05).
 
 ## Implemented
 
@@ -34,6 +37,7 @@ is the framework's default focus-cycling key.
 | `Minus` (`Alt+-`) | `deselect_mask` | Deselect by mask (prompt) |
 | `Asterisk` (`Alt+8`) | `select_invert` | Invert the current selection |
 | `Ctrl+H` | `toggle_hidden` | Toggle hidden-file visibility, both panels |
+| `Ctrl+O` | `toggle_console` | Recall the last command's output |
 | `F5` | `copy` | Copy selection-else-cursor to a prompted target directory |
 | `F6` | `move` | Move selection-else-cursor to a prompted target directory |
 | `Shift+F6` | `rename` | Rename the cursor entry in place, stem pre-selected |
@@ -116,6 +120,37 @@ the UI thread is never blocked, and `OpProgress`/dialog updates are marshalled b
   worker thread — Textual's `run_worker` defaults to tearing down the whole app on an uncaught
   worker exception, so every operation's worker (and the main-thread plan-building step before
   it) catches `OSError` explicitly.
+
+## Command line and console (v0.5)
+
+`mycom/console/` (`cd.py`, `ring_buffer.py`, `pty_runner.py`) is a pure, Textual-free engine —
+same shape as `fileops/` — that `mycom/widgets/command_line.py`'s `CommandLine` widget and
+`mycom/app.py`'s wiring drive.
+
+- **The prompt** always shows the active panel's directory (`CommandLine.set_cwd`, called at
+  every navigation call site: Enter-into, Backspace-up, Tab-switch, Ctrl+U-swap, a typed `cd`).
+  Any printable key `on_key` doesn't recognize as a bound action focuses the command line and
+  inserts the character there instead of leaving it for the panel — real FAR behavior, not a
+  quick-filter-while-browsing model (the pre-v0.5 docs briefly described an in-panel quick filter;
+  that was never actually wired to a keypress, and typing now has a real, different destination).
+- **`cd`** (`mycom/console/cd.py::parse_cd` — quoted paths, `~`, bare `cd` → `$HOME`; `cd -` is a
+  literal target with no OLDPWD tracking, so it predictably reports "no such directory" rather
+  than pretending to support history that isn't there) is intercepted and applied directly to the
+  active panel. Relative targets resolve against the active panel's shown directory, never the
+  MyCom process's own untouched OS-level cwd — that's the whole point of cd-sync.
+- **Anything else** runs via `mycom/console/pty_runner.py::run_in_pty`: `App.suspend()` hands the
+  real terminal to the command (stdlib `pty.spawn`, `cwd` applied as a `cd <dir> && <command>`
+  shell wrapper — no `exec` prefix, since `exec` can't interpret shell syntax like pipes or loops,
+  only launch one binary directly), so interactive programs (`vim`, `htop`, `git rebase -i`) get
+  genuine full-screen control. Every chunk read from the child is teed into a `RingBuffer` (bounded
+  at 100k lines, oldest evicted first) before being relayed to the real terminal unaltered.
+- **On return**, a small screen shows `Press any key` (skipped if the command printed nothing) and
+  `Exit code: N` for a non-zero exit; dismissing refreshes both panels (an external command can
+  change either side) and returns focus to the active panel. An unexpected `OSError` or
+  `SuspendNotSupported` (Textual's headless test driver can't actually suspend, confirmed by
+  reading its source) shows a clean message instead of propagating.
+- **`Ctrl+O`** shows the ring buffer's current text in a scrollable screen ("No output yet" if
+  nothing has run this session) — pure recall, nothing re-executes.
 
 ## Reserved, not yet functional
 

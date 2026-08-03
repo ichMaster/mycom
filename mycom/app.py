@@ -16,6 +16,8 @@ from mycom.config import GeneralConfig, load_config
 from mycom.console.cd import parse_cd
 from mycom.console.pty_runner import run_in_pty
 from mycom.console.ring_buffer import RingBuffer
+from mycom.editor.detect import NotEditableError, read_text
+from mycom.editor.screen import EditorScreen
 from mycom.fileops import (
     CancelToken,
     ConflictTypeMismatchError,
@@ -461,19 +463,55 @@ class MyComApp(App):
         target = panel.current_path / name
         if target.is_dir():
             return
+        self._push_viewer(target)
+
+    def _push_viewer(self, path: Path) -> None:
         try:
-            screen = ViewerScreen(target, self._keymap)
+            screen = ViewerScreen(path, self._keymap)
         except OSError as exc:
-            self.push_screen(ErrorDialog(f"Cannot open {target.name}: {exc}"))
+            self.push_screen(ErrorDialog(f"Cannot open {path.name}: {exc}"))
             return
 
         def on_dismiss(result: str | None) -> None:
             if result == "edit":
-                # F6 hands off to the editor at the same file (MC-039); for
-                # now, dismissing the viewer already returns to the panels.
-                pass
+                # F6 hands off to the editor at the same file, top of file
+                # (F0.12's own acceptance box — not the viewer's scroll
+                # position).
+                self._open_editor(path)
 
         self.push_screen(screen, callback=on_dismiss)
+
+    def action_edit(self) -> None:
+        panel = self.active_panel
+        name = panel.file_list.selected_name
+        if name is None or name == "..":
+            return
+        target = panel.current_path / name
+        if target.is_dir():
+            return
+        self._open_editor(target)
+
+    def _open_editor(self, path: Path) -> None:
+        try:
+            text, eol, trailing_newline = read_text(path)
+        except NotEditableError as exc:
+            reason = "binary" if exc.reason == "binary" else "too large to edit"
+            self.notify(f'"{path.name}" is {reason} — opening in the viewer instead.')
+            self._push_viewer(path)
+            return
+        except OSError as exc:
+            self.push_screen(ErrorDialog(f"Cannot open {path.name}: {exc}"))
+            return
+
+        def on_close(_result: None) -> None:
+            self.active_panel.refresh_listing()
+            self.inactive_panel.refresh_listing()
+            self.active_panel.file_list.focus()
+
+        self.push_screen(
+            EditorScreen(path, self._keymap, text, eol, trailing_newline),
+            callback=on_close,
+        )
 
     def action_copy(self) -> None:
         panel = self.active_panel

@@ -7,6 +7,7 @@ import time
 import pytest
 
 from mycom.app import MyComApp
+from mycom.editor.screen import EditorScreen
 from mycom.viewer.screen import ViewerScreen
 
 
@@ -61,14 +62,19 @@ async def test_viewer_closes_via_each_close_key(tmp_path, close_key):
 
 
 @pytest.mark.asyncio
-async def test_f6_dismisses_viewer_back_to_panels(tmp_path):
+async def test_f6_hands_off_to_editor_at_the_same_file(tmp_path):
+    """F6 closes the viewer and opens the same file in the editor, at the
+    top of the file (F0.12's own acceptance box — not the viewer's scroll
+    position), landed by MC-039."""
     app = MyComApp()
     async with app.run_test() as pilot:
         await _open_viewer(pilot, app, tmp_path, b"content\n")
         assert len(app.screen_stack) == 2
         await pilot.press("f6")
         await pilot.pause()
-        assert len(app.screen_stack) == 1
+        assert len(app.screen_stack) == 2
+        assert isinstance(app.screen, EditorScreen)
+        assert app.screen.path == tmp_path / "f.txt"
 
 
 @pytest.mark.asyncio

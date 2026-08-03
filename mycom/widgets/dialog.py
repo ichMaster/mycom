@@ -230,6 +230,29 @@ class ConfirmDialog(DialogKit[bool]):
         return button_id == "yes"
 
 
+class SaveDiscardCancelDialog(DialogKit[str]):
+    """The editor's modified-close guard (F0.13): Save / Discard / Cancel —
+    not a plain yes/no `ConfirmDialog`, since "no" is ambiguous between
+    "discard my edits" and "don't close". Dismisses with the button id
+    itself (`"save"`/`"discard"`/`"cancel"`); `Esc` and Cancel both mean
+    "stay in the editor, nothing lost either way"."""
+
+    def __init__(self, message: str, **kwargs) -> None:
+        super().__init__(
+            message=message,
+            buttons=(
+                DialogButton("Save", "save", hotkey="s", default=True, variant="primary"),
+                DialogButton("Discard", "discard", hotkey="d"),
+                DialogButton("Cancel", "cancel", hotkey="c"),
+            ),
+            cancel_result="cancel",
+            **kwargs,
+        )
+
+    def _result_for(self, button_id: str) -> str:
+        return button_id
+
+
 def _stem_end(name: str) -> int:
     """Index where a filename's stem ends (FAR convention: up to the last
     `.`, but a leading dot doesn't count — `.gitignore` has no extension)."""

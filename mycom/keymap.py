@@ -65,6 +65,9 @@ DEFAULT_COMMANDS: tuple[Command, ...] = (
     Command("viewer_wrap", ("f2",), "viewer", "Wrap", slot=2),
     Command("viewer_edit", ("f6",), "viewer", "Edit", slot=6),
     Command("viewer_close", ("f3", "f10", "escape"), "viewer", "Quit", slot=3),
+    Command("editor_save", ("f2",), "editor", "Save", slot=2),
+    Command("editor_save_as", ("shift+f2",), "editor", "SaveAs"),
+    Command("editor_close", ("f10", "escape"), "editor", "Quit", slot=10),
 )
 
 

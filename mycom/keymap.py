@@ -56,6 +56,15 @@ DEFAULT_COMMANDS: tuple[Command, ...] = (
     Command("select_invert", ("asterisk", "alt+8"), "panel", "Invert"),
     Command("toggle_hidden", ("ctrl+h",), "panel", "Hidden"),
     Command("toggle_console", ("ctrl+o",), "panel", "LastOutput"),
+    Command("viewer_line_up", ("up",), "viewer", "LineUp"),
+    Command("viewer_line_down", ("down",), "viewer", "LineDown"),
+    Command("viewer_page_up", ("pageup",), "viewer", "PgUp"),
+    Command("viewer_page_down", ("pagedown",), "viewer", "PgDn"),
+    Command("viewer_home", ("home",), "viewer", "Top"),
+    Command("viewer_end", ("end",), "viewer", "Bottom"),
+    Command("viewer_wrap", ("f2",), "viewer", "Wrap", slot=2),
+    Command("viewer_edit", ("f6",), "viewer", "Edit", slot=6),
+    Command("viewer_close", ("f3", "f10", "escape"), "viewer", "Quit", slot=3),
 )
 
 

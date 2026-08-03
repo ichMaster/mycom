@@ -37,6 +37,7 @@ from mycom.panels.file_browser import FileBrowserPanel
 from mycom.panels.views import ViewMode
 from mycom.state import PanelState, StateDB
 from mycom.theme import FAR_CLASSIC_THEME
+from mycom.viewer.screen import ViewerScreen
 from mycom.widgets.command_line import CommandLine
 from mycom.widgets.conflict_dialog import ConflictDialogPolicy
 from mycom.widgets.dialog import ConfirmDialog, ErrorDialog, InputDialog, OperationProgressDialog
@@ -451,6 +452,28 @@ class MyComApp(App):
             InputDialog(f"{verb} files matching (e.g. *.py;*.md):", default="*"),
             callback=on_dismiss,
         )
+
+    def action_view(self) -> None:
+        panel = self.active_panel
+        name = panel.file_list.selected_name
+        if name is None or name == "..":
+            return
+        target = panel.current_path / name
+        if target.is_dir():
+            return
+        try:
+            screen = ViewerScreen(target, self._keymap)
+        except OSError as exc:
+            self.push_screen(ErrorDialog(f"Cannot open {target.name}: {exc}"))
+            return
+
+        def on_dismiss(result: str | None) -> None:
+            if result == "edit":
+                # F6 hands off to the editor at the same file (MC-039); for
+                # now, dismissing the viewer already returns to the panels.
+                pass
+
+        self.push_screen(screen, callback=on_dismiss)
 
     def action_copy(self) -> None:
         panel = self.active_panel

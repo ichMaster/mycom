@@ -65,12 +65,21 @@ def test_bindings_for_context():
     triples = {(key, action) for key, action, _label in bindings}
     assert ("ctrl+u", "panel_swap") in triples
     assert ("f5", "copy") in triples
-    assert len(bindings) == sum(len(cmd.keys) for cmd in DEFAULT_COMMANDS)
+    expected = sum(len(cmd.keys) for cmd in DEFAULT_COMMANDS if cmd.context == "panel")
+    assert len(bindings) == expected
+
+
+def test_bindings_for_context_includes_viewer_context():
+    km = Keymap()
+    bindings = km.bindings_for_context("viewer")
+    triples = {(key, action) for key, action, _label in bindings}
+    assert ("f2", "viewer_wrap") in triples
+    assert ("escape", "viewer_close") in triples
 
 
 def test_bindings_for_context_no_match():
     km = Keymap()
-    assert km.bindings_for_context("viewer") == []
+    assert km.bindings_for_context("nonexistent") == []
 
 
 def test_override_preserves_context_and_label():
@@ -122,5 +131,13 @@ def test_key_bar_slots_unassigned_are_empty():
 
 def test_key_bar_slots_no_match_for_unknown_context():
     km = Keymap()
-    slots = km.key_bar_slots("viewer")
+    slots = km.key_bar_slots("nonexistent")
     assert all(action == "" for _slot, action, _key, _label in slots)
+
+
+def test_key_bar_slots_viewer_context_assigned_actions():
+    km = Keymap()
+    slots = {s[0]: s for s in km.key_bar_slots("viewer")}
+    assert slots[2][1] == "viewer_wrap"
+    assert slots[3][1] == "viewer_close"
+    assert slots[6][1] == "viewer_edit"

@@ -1,6 +1,23 @@
 MyCom — Release History
 =======================
 
+Version 0.6.0 (2026-08-03)
+---------------------------
+- Viewer (F3): read-only, instant open at any file size — windowed/mmap-backed, never loads a
+  file whole; arrows/PgUp/PgDn/Home/End navigate by file offset; F2 toggles wrap, preserving
+  position exactly; F6 hands off to the editor at the same file, top of file
+- Editor (F4): TextArea-based with full undo/redo; EOL (LF/CRLF, including mixed-dominant) and
+  trailing-newline state detected on open and preserved byte-for-byte on save; F2 save, Shift+F2
+  save-as; quitting a modified buffer always prompts Save/Discard/Cancel; a file changed on disk
+  since it was opened warns before an overwriting save; a binary or >10MB file redirects to the
+  viewer instead of being loaded
+- Alt+F4 (or config editor.external_default) hands the cursor file straight to $EDITOR instead of
+  the built-in editor, via the same App.suspend() mechanism the command line uses
+- Code review fixes: unrecognized keys no longer leak from the viewer/editor into panel-level
+  actions underneath (Screen._modal_binding_chain, not a naive event.stop() — that broke
+  TextArea's own undo/redo); $EDITOR is now shell-word-split so multi-word values like
+  "code --wait" work; editor saves pass newline="" for portable CRLF correctness
+
 Version 0.5.0 (2026-08-03)
 ---------------------------
 - Command line: a prompt under the panels always shows the active panel's directory; typing

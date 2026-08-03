@@ -36,6 +36,16 @@ def test_plugin_config_from_fixture():
     assert config.plugins.editors[".py"] == "default-text-editor"
 
 
+def test_editor_config_from_fixture():
+    config = load_config(FIXTURES / "config.toml")
+    assert config.editor.external_default is True
+
+
+def test_editor_config_defaults_when_no_config_file():
+    config = load_config(Path("/nonexistent/config.toml"))
+    assert config.editor.external_default is False
+
+
 def test_keybindings_from_fixture():
     config = load_config(FIXTURES / "config.toml")
     assert config.keybindings["copy"] == "ctrl+c"

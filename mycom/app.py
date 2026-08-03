@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import subprocess
 from pathlib import Path
 
 from textual.app import App, ComposeResult, SuspendNotSupported
@@ -455,13 +456,22 @@ class MyComApp(App):
             callback=on_dismiss,
         )
 
-    def action_view(self) -> None:
+    def _cursor_file(self) -> Path | None:
+        """The active panel's cursor file, or `None` if the cursor is on a
+        directory, "..", or nothing is selected — shared by every F3/F4/
+        Alt+F4 handler's notion of "the current file"."""
         panel = self.active_panel
         name = panel.file_list.selected_name
         if name is None or name == "..":
-            return
+            return None
         target = panel.current_path / name
         if target.is_dir():
+            return None
+        return target
+
+    def action_view(self) -> None:
+        target = self._cursor_file()
+        if target is None:
             return
         self._push_viewer(target)
 
@@ -482,12 +492,11 @@ class MyComApp(App):
         self.push_screen(screen, callback=on_dismiss)
 
     def action_edit(self) -> None:
-        panel = self.active_panel
-        name = panel.file_list.selected_name
-        if name is None or name == "..":
+        target = self._cursor_file()
+        if target is None:
             return
-        target = panel.current_path / name
-        if target.is_dir():
+        if self._config.editor.external_default:
+            self._run_external_editor(target)
             return
         self._open_editor(target)
 
@@ -512,6 +521,27 @@ class MyComApp(App):
             EditorScreen(path, self._keymap, text, eol, trailing_newline),
             callback=on_close,
         )
+
+    def action_edit_external(self) -> None:
+        """Alt+F4: the permanent $EDITOR escape hatch (F0.13) — hands the
+        whole terminal to the user's real editor via the same suspend/
+        resume mechanism v0.5's command execution uses. `editor.
+        external_default` makes plain F4 do this too."""
+        target = self._cursor_file()
+        if target is None:
+            return
+        self._run_external_editor(target)
+
+    def _run_external_editor(self, path: Path) -> None:
+        editor = os.environ.get("EDITOR", "vi")
+        try:
+            with self.suspend():
+                subprocess.run([editor, str(path)])
+        except (OSError, SuspendNotSupported) as exc:
+            self.push_screen(ErrorDialog(f"Cannot launch external editor: {exc}"))
+            return
+        self.active_panel.refresh_listing()
+        self.inactive_panel.refresh_listing()
 
     def action_copy(self) -> None:
         panel = self.active_panel

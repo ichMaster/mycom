@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from textual.app import ComposeResult
@@ -10,7 +11,7 @@ from textual.widgets import Static, TextArea
 
 from mycom.editor.detect import EolStyle, apply_eol
 from mycom.keymap import Keymap
-from mycom.widgets.dialog import ErrorDialog, InputDialog, SaveDiscardCancelDialog
+from mycom.widgets.dialog import ConfirmDialog, ErrorDialog, InputDialog, SaveDiscardCancelDialog
 from mycom.widgets.status_bar import StatusBar
 
 _EOL_LABELS = {
@@ -24,11 +25,12 @@ _EOL_LABELS = {
 class EditorScreen(Screen[None]):
     """`F4`: a `TextArea`-based editor. The contract is *trust*: EOL and
     trailing-newline preserved byte-for-byte on save, a modified-guard
-    (Save/Discard/Cancel) before ever closing a dirty buffer. Undo/redo is
-    `TextArea`'s own built-in stack (`Ctrl+Z`/`Ctrl+Y`) — nothing extra to
-    wire. Binary/oversize detection and the external-change guard live in
-    the caller (`MyComApp`) and in MC-040 respectively; this screen assumes
-    it was only ever constructed with text `read_text` already accepted.
+    (Save/Discard/Cancel) before ever closing a dirty buffer, and an
+    external-change guard before ever overwriting a file that was touched on
+    disk since it was opened. Undo/redo is `TextArea`'s own built-in stack
+    (`Ctrl+Z`/`Ctrl+Y`) — nothing extra to wire. Binary/oversize detection
+    lives in the caller (`MyComApp`); this screen assumes it was only ever
+    constructed with text `read_text` already accepted.
     """
 
     DEFAULT_CSS = """
@@ -62,12 +64,20 @@ class EditorScreen(Screen[None]):
         self._eol = eol
         self._trailing_newline = trailing_newline
         self._saved_text = text
+        self._mtime_at_open = self._safe_mtime(path)
         # tab_behavior="focus" (the TextArea default) is required for F2/
         # Shift+F2/F10/Esc to bubble up to this screen's on_key at all — the
         # "indent" variant's own _on_key special-cases Escape to move focus
         # instead of letting it bubble.
         self._text_area = TextArea(text, tab_behavior="focus")
         self._info = Static(id="editor-info")
+
+    @staticmethod
+    def _safe_mtime(path: Path) -> float | None:
+        try:
+            return path.stat().st_mtime
+        except OSError:
+            return None
 
     def compose(self) -> ComposeResult:
         yield self._info
@@ -122,11 +132,41 @@ class EditorScreen(Screen[None]):
             self.app.push_screen(ErrorDialog(f"Cannot save: {exc}"))
             return False
         self._saved_text = self._text_area.text
+        self._mtime_at_open = self._safe_mtime(path)
         self._update_info()
         return True
 
+    def _external_change_detected(self) -> bool:
+        current = self._safe_mtime(self._path)
+        return (
+            self._mtime_at_open is not None
+            and current is not None
+            and current != self._mtime_at_open
+        )
+
+    def _save_with_guard(self, on_done: Callable[[bool], None]) -> None:
+        """Writes to `self._path`, warning first if the file was touched on
+        disk since it was opened — never a silent last-writer-wins. `on_done`
+        is called with whether the write actually happened (declining the
+        warning, or a write failure, both leave the in-memory buffer
+        untouched — nothing is ever lost either way)."""
+        if self._external_change_detected():
+
+            def on_confirm(confirmed: bool) -> None:
+                on_done(self._write(self._path) if confirmed else False)
+
+            self.app.push_screen(
+                ConfirmDialog(
+                    f'"{self._path.name}" changed on disk since you opened it. '
+                    "Overwrite anyway?"
+                ),
+                callback=on_confirm,
+            )
+            return
+        on_done(self._write(self._path))
+
     def save(self) -> None:
-        self._write(self._path)
+        self._save_with_guard(lambda _success: None)
 
     def save_as(self) -> None:
         def on_dismiss(new_path_text: str | None) -> None:
@@ -149,10 +189,10 @@ class EditorScreen(Screen[None]):
 
         def on_choice(choice: str) -> None:
             if choice == "save":
-                if self._write(self._path):
-                    self.dismiss(None)
-                # A failed write already showed an error — stay open so
-                # nothing typed is lost.
+                # A failed write (or a declined external-change warning)
+                # already showed the reason — stay open so nothing typed is
+                # lost.
+                self._save_with_guard(lambda success: self.dismiss(None) if success else None)
             elif choice == "discard":
                 self.dismiss(None)
             # "cancel" (or Esc): stay in the editor, buffer untouched.

@@ -20,3 +20,6 @@ max_context_files = 5
 
 [plugins.editors]
 ".py" = "default-text-editor"
+
+[editor]
+external_default = true

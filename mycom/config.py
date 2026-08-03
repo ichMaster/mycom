@@ -33,11 +33,17 @@ class PluginConfig:
 
 
 @dataclass(frozen=True)
+class EditorConfig:
+    external_default: bool = False
+
+
+@dataclass(frozen=True)
 class AppConfig:
     general: GeneralConfig = field(default_factory=GeneralConfig)
     keybindings: dict[str, str] = field(default_factory=dict)
     llm: LLMConfig = field(default_factory=LLMConfig)
     plugins: PluginConfig = field(default_factory=PluginConfig)
+    editor: EditorConfig = field(default_factory=EditorConfig)
 
 
 def _build_section(cls: type, data: dict[str, Any]) -> Any:
@@ -57,6 +63,7 @@ def load_config(path: Path | None = None) -> AppConfig:
 
     general = _build_section(GeneralConfig, raw.get("general", {}))
     llm = _build_section(LLMConfig, raw.get("llm", {}))
+    editor = _build_section(EditorConfig, raw.get("editor", {}))
 
     plugins_raw = raw.get("plugins", {})
     plugins = PluginConfig(
@@ -71,4 +78,5 @@ def load_config(path: Path | None = None) -> AppConfig:
         keybindings=keybindings,
         llm=llm,
         plugins=plugins,
+        editor=editor,
     )

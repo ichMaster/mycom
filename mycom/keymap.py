@@ -68,6 +68,7 @@ DEFAULT_COMMANDS: tuple[Command, ...] = (
     Command("editor_save", ("f2",), "editor", "Save", slot=2),
     Command("editor_save_as", ("shift+f2",), "editor", "SaveAs"),
     Command("editor_close", ("f10", "escape"), "editor", "Quit", slot=10),
+    Command("edit_external", ("alt+f4",), "panel", "ExtEdit"),
 )
 
 

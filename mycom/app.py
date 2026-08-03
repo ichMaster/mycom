@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -533,10 +534,14 @@ class MyComApp(App):
         self._run_external_editor(target)
 
     def _run_external_editor(self, path: Path) -> None:
-        editor = os.environ.get("EDITOR", "vi")
+        # $EDITOR conventionally can carry flags (EDITOR="code --wait",
+        # "vim -O", ...) — shlex-split it into a real argv rather than
+        # treating the whole string as a single binary name (code review
+        # #2). `or ["vi"]` covers both "unset" and "set to empty/blank".
+        argv = shlex.split(os.environ.get("EDITOR", "")) or ["vi"]
         try:
             with self.suspend():
-                subprocess.run([editor, str(path)])
+                subprocess.run([*argv, str(path)])
         except (OSError, SuspendNotSupported) as exc:
             self.push_screen(ErrorDialog(f"Cannot launch external editor: {exc}"))
             return

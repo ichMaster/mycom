@@ -151,6 +151,55 @@ async def test_alt_f4_suspends_runs_editor_and_refreshes_panel(tmp_path, monkeyp
 
 
 @pytest.mark.asyncio
+async def test_alt_f4_splits_multi_word_editor_command(tmp_path, monkeypatch):
+    """Code review #1: $EDITOR conventionally carries flags (EDITOR=
+    "code --wait", "vim -O", ...) — the whole string must not be treated as
+    a single binary name."""
+    monkeypatch.setattr(MyComApp, "suspend", lambda self: contextlib.nullcontext())
+    calls = []
+    monkeypatch.setattr(app_module.subprocess, "run", lambda argv, **kw: calls.append(argv))
+    monkeypatch.setenv("EDITOR", "my-editor --flag")
+
+    p = tmp_path / "f.txt"
+    p.write_bytes(b"one\n")
+
+    app = MyComApp()
+    async with app.run_test() as pilot:
+        app.active_panel.navigate_to(tmp_path)
+        await pilot.pause()
+        app.active_panel.file_list.select_by_name("f.txt")
+        await pilot.pause()
+
+        await pilot.press("alt+f4")
+        await pilot.pause()
+
+    assert calls == [["my-editor", "--flag", str(p)]]
+
+
+@pytest.mark.asyncio
+async def test_alt_f4_falls_back_to_vi_when_editor_is_unset_or_blank(tmp_path, monkeypatch):
+    monkeypatch.setattr(MyComApp, "suspend", lambda self: contextlib.nullcontext())
+    calls = []
+    monkeypatch.setattr(app_module.subprocess, "run", lambda argv, **kw: calls.append(argv))
+    monkeypatch.setenv("EDITOR", "   ")  # blank, not just unset
+
+    p = tmp_path / "f.txt"
+    p.write_bytes(b"one\n")
+
+    app = MyComApp()
+    async with app.run_test() as pilot:
+        app.active_panel.navigate_to(tmp_path)
+        await pilot.pause()
+        app.active_panel.file_list.select_by_name("f.txt")
+        await pilot.pause()
+
+        await pilot.press("alt+f4")
+        await pilot.pause()
+
+    assert calls == [["vi", str(p)]]
+
+
+@pytest.mark.asyncio
 async def test_alt_f4_suspend_not_supported_shows_clean_error(tmp_path):
     """No monkeypatch of `suspend` at all — exercises the real headless
     driver, which can't suspend, proving Alt+F4 degrades gracefully instead

@@ -113,8 +113,33 @@ class FileBrowserPanel(BasePanel):
         except OSError as exc:
             self._show_error(f"Cannot open {self._current_path}: {exc.strerror or exc}")
             return
+        self._reconcile_selection(entries)
         self._entries = entries
         self._render_entries()
+
+    def _reconcile_selection(self, new_entries: list[FileEntry]) -> None:
+        """Drop a selected name whose entry no longer matches what was
+        selected — selection is keyed by bare filename only (no inode
+        tracking available), so if an external process replaces a selected
+        file with an unrelated same-named one between refreshes (e.g. while
+        Ctrl+H or an external command triggers this same reload), the name
+        alone can't tell them apart. `(is_dir, size, modified)` is the
+        closest identity signal `FileEntry` already carries — a real
+        replacement changes at least one of them; a merely-touched file
+        staying selected is an acceptable, low-cost false negative next to
+        silently operating on the wrong file's content (code review v0.3 #2).
+        """
+        if not self._selected:
+            return
+        old_by_name = {e.name: e for e in self._entries}
+        new_by_name = {e.name: e for e in new_entries}
+        for name in list(self._selected):
+            old = old_by_name.get(name)
+            new = new_by_name.get(name)
+            if old is None or new is None:
+                continue
+            if (old.is_dir, old.size, old.modified) != (new.is_dir, new.size, new.modified):
+                self._selected.discard(name)
 
     def set_show_hidden(self, value: bool) -> None:
         """Ctrl+H: toggle hidden-file visibility, preserving the cursor
